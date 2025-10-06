@@ -915,7 +915,7 @@ export class MicrosoftRewardsBot {
 
         const afterPointAmount = await this.browser.func.getCurrentPoints()
 
-        log(this.isMobile, 'MAIN-POINTS', `The script collected ${afterPointAmount - initialPoints} points today`)
+        log(this.isMobile, 'MAIN-POINTS', `The script collected ${afterPointAmount - initialPoints} points today: Current total: ${afterPointAmount} points.`)
 
         // Close mobile browser
         await this.browser.func.closeBrowser(browser, account.email)
