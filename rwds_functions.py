@@ -22,6 +22,38 @@ processes_lock = threading.Lock()
 # Configuração de delay entre inicialização de bots (em segundos)
 BOT_START_DELAY_SECONDS = 10  # Delay progressivo entre bots (0, 10, 20, 30 segundos, etc.)
 
+def load_json_with_comments(file_path):
+    """
+    Carrega um arquivo JSON que pode conter comentários // ou /* */
+    Remove comentários antes de fazer o parse
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Remove comentários de linha única //
+        lines = content.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            # Remove comentários // mas preserva URLs
+            if '//' in line and not ('http://' in line or 'https://' in line):
+                line = line.split('//')[0]
+            cleaned_lines.append(line)
+        
+        content = '\n'.join(cleaned_lines)
+        
+        # Remove comentários de bloco /* */
+        import re
+        content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+        
+        # Remove vírgulas extras antes de } ou ]
+        content = re.sub(r',\s*([}\]])', r'\1', content)
+        
+        return json.loads(content)
+    except Exception as e:
+        print(f"❌ Erro ao carregar JSON com comentários: {str(e)}")
+        return None
+
 def extract_email_from_accounts(accounts_data):
     """
     Extrai o email do arquivo accounts.json, suportando ambos os formatos:
@@ -304,19 +336,19 @@ def send_discord_redeem_alert(bot_letter, message, discord_webhook_url_br, disco
             
             # Obter email
             if os.path.exists(accounts_file):
-                with open(accounts_file, 'r') as f:
-                    accounts_data = json.load(f)
+                accounts_data = load_json_with_comments(accounts_file)
+                if accounts_data:
                     email = extract_email_from_accounts(accounts_data)
             
             # Obter perfil da sessão e doDailySet
             check_restrict = "Unknown"
             if os.path.exists(config_file):
-                with open(config_file, 'r') as f:
-                    config_data = json.load(f)
+                config_data = load_json_with_comments(config_file)
+                if config_data:
                     session_path = config_data.get('sessionPath', '')
                     if session_path and 'sessions/_' in session_path:
                         session_profile = session_path.split('sessions/_')[1]
-                    check_restrict = config_data["workers"]["doDesktopSearch"]
+                    check_restrict = config_data.get("workers", {}).get("doDesktopSearch", "Unknown")
         except Exception as e:
             print(f"❌ Erro ao obter informações da conta: {str(e)}")
         
@@ -404,14 +436,14 @@ def send_discord_suspension_alert(bot_letter, discord_webhook_url_br, discord_we
             
             # Obter email
             if os.path.exists(accounts_file):
-                with open(accounts_file, 'r') as f:
-                    accounts_data = json.load(f)
+                accounts_data = load_json_with_comments(accounts_file)
+                if accounts_data:
                     email = extract_email_from_accounts(accounts_data)
             
             # Obter perfil da sessão e doDesktopSearch
             if os.path.exists(config_file):
-                with open(config_file, 'r') as f:
-                    config_data = json.load(f)
+                config_data = load_json_with_comments(config_file)
+                if config_data:
                     session_path = config_data.get('sessionPath', '')
                     if session_path and 'sessions/_' in session_path:
                         session_profile = session_path.split('sessions/_')[1]
