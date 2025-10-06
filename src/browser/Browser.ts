@@ -50,12 +50,17 @@ class Browser {
                 headless,
                 ...(proxy.url && { proxy: { username: proxy.username, password: proxy.password, server: `${proxy.url}:${proxy.port}` } }),
                 args: [
-                    '--no-sandbox',
-                    '--mute-audio',
-                    '--disable-setuid-sandbox',
-                    '--ignore-certificate-errors',
-                    '--ignore-certificate-errors-spki-list',
-                    '--ignore-ssl-errors'
+                    '--disable-background-networking',
+                    '--test-type', // Test mode
+                    '--disable-quic', // Disable QUIC connection
+                    '--no-first-run', // Skip first run check
+                    '--blink-settings=imagesEnabled=false', // Disable image loading
+                    '--no-sandbox', // Disable sandbox mode
+                    '--mute-audio', // Disable audio
+                    '--disable-setuid-sandbox', // Disable setuid sandbox
+                    '--ignore-certificate-errors', // Ignore all certificate errors
+                    '--ignore-certificate-errors-spki-list', // Ignore certificate errors for specified SPKI list
+                    '--ignore-ssl-errors', // Ignore SSL errors
                 ]
             })
         } catch (e: unknown) {
@@ -69,19 +74,43 @@ class Browser {
             throw e
         }
 
-    // Resolve saveFingerprint from legacy root or new fingerprinting.saveFingerprint
-    const fpConfig = (cfgAny['saveFingerprint'] as unknown) || ((cfgAny['fingerprinting'] as Record<string, unknown> | undefined)?.['saveFingerprint'] as unknown)
-    const saveFingerprint: { mobile: boolean; desktop: boolean } = (fpConfig as { mobile: boolean; desktop: boolean }) || { mobile: false, desktop: false }
+        // Resolve saveFingerprint from legacy root or new fingerprinting.saveFingerprint
+        const fpConfig = (cfgAny['saveFingerprint'] as unknown) || ((cfgAny['fingerprinting'] as Record<string, unknown> | undefined)?.['saveFingerprint'] as unknown)
+        const saveFingerprint: { mobile: boolean; desktop: boolean } = (fpConfig as { mobile: boolean; desktop: boolean }) || { mobile: false, desktop: false }
 
-    const sessionData = await loadSessionData(this.bot.config.sessionPath, email, this.bot.isMobile, saveFingerprint)
+        const sessionData = await loadSessionData(this.bot.config.sessionPath, email, this.bot.isMobile, saveFingerprint)
 
         const fingerprint = sessionData.fingerprint ? sessionData.fingerprint : await this.generateFingerprint()
 
-    const context = await newInjectedContext(browser as unknown as import('playwright').Browser, { fingerprint: fingerprint })
+        const context = await newInjectedContext(browser as unknown as import('playwright').Browser, { fingerprint: fingerprint })
 
-    // Set timeout to preferred amount (supports legacy globalTimeout or browser.globalTimeout)
-    const globalTimeout = (cfgAny['globalTimeout'] as unknown) ?? ((cfgAny['browser'] as Record<string, unknown> | undefined)?.['globalTimeout'] as unknown) ?? 30000
-    context.setDefaultTimeout(this.bot.utils.stringToMs(globalTimeout as (number | string)))
+        // Block image loading to save data traffic
+        await context.route('**/*', (route) => {
+            const resourceType = route.request().resourceType()
+            const url = route.request().url()
+
+            // Bloquear imagens
+            if (resourceType === 'image' || resourceType === 'media') {
+                return route.abort()
+            }
+
+            // Bloquear fontes (resourceType font ou extensão conhecida)
+            if (
+                resourceType === 'font' ||
+                url.endsWith('.woff') ||
+                url.endsWith('.woff2') ||
+                url.endsWith('.ttf') ||
+                url.endsWith('.otf')
+            ) {
+                return route.abort()
+            }
+
+            return route.continue()
+        })
+
+        // Set timeout to preferred amount (supports legacy globalTimeout or browser.globalTimeout)
+        const globalTimeout = (cfgAny['globalTimeout'] as unknown) ?? ((cfgAny['browser'] as Record<string, unknown> | undefined)?.['globalTimeout'] as unknown) ?? 30000
+        context.setDefaultTimeout(this.bot.utils.stringToMs(globalTimeout as (number | string)))
 
         // Normalize viewport and page rendering so content fits typical screens
         try {
