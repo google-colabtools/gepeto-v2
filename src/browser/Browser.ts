@@ -43,10 +43,11 @@ class Browser {
             const headlessValue = envForceHeadless ? true : ((cfgAny['headless'] as boolean | undefined) ?? (cfgAny['browser'] && (cfgAny['browser'] as Record<string, unknown>)['headless'] as boolean | undefined) ?? false)
             const headless: boolean = Boolean(headlessValue)
 
-            const engineName = 'chromium' // current hard-coded engine
+            const useEdge = process.env.EDGE_ENABLED === 'true'
+            const engineName = useEdge ? 'msedge' : 'chromium'
             this.bot.log(this.bot.isMobile, 'BROWSER', `Launching ${engineName} (headless=${headless})`) // explicit engine log
             browser = await playwright.chromium.launch({
-                //channel: 'msedge', // Uses Edge instead of chrome
+                ...(useEdge && { channel: 'msedge' }), // Uses Edge only if EDGE_ENABLED=true
                 headless,
                 ...(proxy.url && { proxy: { username: proxy.username, password: proxy.password, server: `${proxy.url}:${proxy.port}` } }),
                 args: [

@@ -99,13 +99,13 @@
     
     "workers": {
         // Select what the bot should complete on desktop/mobile
-        "doDailySet": true,
-        "doMorePromotions": true,
-        "doPunchCards": true,
-        "doDesktopSearch": true,
-        "doMobileSearch": true,
-        "doDailyCheckIn": true,
-        "doReadToEarn": true,
+        "doDailySet": false,
+        "doMorePromotions": false,
+        "doPunchCards": false,
+        "doDesktopSearch": false,
+        "doMobileSearch": false,
+        "doDailyCheckIn": false,
+        "doReadToEarn": false,
         // If true, run a desktop search bundle right after Daily Set
         "bundleDailySetWithSearch": false
     },

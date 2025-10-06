@@ -80,7 +80,23 @@ export class Login {
       await page.waitForLoadState('domcontentloaded').catch(()=>{})
       await this.bot.browser.utils.reloadBadPage(page)
       await this.checkAccountLocked(page)
-
+      // Handle possible multiple "Skip for now" passkey prompts
+      let skipButtonFound = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const skipButton = await page.waitForSelector('button[data-testid="secondaryButton"]', { timeout: 3000 }).catch(() => null);
+        if (skipButton) {
+          skipButtonFound = true;
+          await skipButton.click();
+          this.bot.log(this.bot.isMobile, 'LOGIN', `"Skip for now" button found and clicked (attempt ${attempt}).`);
+          await this.bot.utils.wait(5000); // Espera antes de tentar novamente
+        } else if (!skipButtonFound) {
+          this.bot.log(this.bot.isMobile, 'LOGIN', `Verifying for 'Skip for now' buttons.`);
+          break;
+        } else {
+          this.bot.log(this.bot.isMobile, 'LOGIN', `"No more 'Skip for now' button found. Stopping.`);
+          break;
+        }
+      }
       const already = await page.waitForSelector('html[data-role-name="RewardsPortal"]', { timeout: 8000 }).then(()=>true).catch(()=>false)
       if (!already) {
         await this.performLoginFlow(page, email, password)
