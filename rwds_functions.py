@@ -22,6 +22,28 @@ processes_lock = threading.Lock()
 # Configuração de delay entre inicialização de bots (em segundos)
 BOT_START_DELAY_SECONDS = 10  # Delay progressivo entre bots (0, 10, 20, 30 segundos, etc.)
 
+def extract_email_from_accounts(accounts_data):
+    """
+    Extrai o email do arquivo accounts.json, suportando ambos os formatos:
+    - Formato novo: array direto [{'email': '...'}]
+    - Formato antigo: com wrapper {'accounts': [{'email': '...'}]}
+    """
+    try:
+        if isinstance(accounts_data, dict) and 'accounts' in accounts_data:
+            # Formato antigo: {'accounts': [...]}
+            accounts_list = accounts_data['accounts']
+        elif isinstance(accounts_data, list):
+            # Formato novo: [...]
+            accounts_list = accounts_data
+        else:
+            return 'Unknown'
+        
+        if accounts_list and len(accounts_list) > 0:
+            return accounts_list[0].get('email', 'Unknown')
+        return 'Unknown'
+    except Exception:
+        return 'Unknown'
+
 #===============================================================
 
 # Carrega o arquivo .env
@@ -284,8 +306,7 @@ def send_discord_redeem_alert(bot_letter, message, discord_webhook_url_br, disco
             if os.path.exists(accounts_file):
                 with open(accounts_file, 'r') as f:
                     accounts_data = json.load(f)
-                    if accounts_data and len(accounts_data) > 0:
-                        email = accounts_data[0].get('email', 'Unknown')
+                    email = extract_email_from_accounts(accounts_data)
             
             # Obter perfil da sessão e doDailySet
             check_restrict = "Unknown"
@@ -385,8 +406,7 @@ def send_discord_suspension_alert(bot_letter, discord_webhook_url_br, discord_we
             if os.path.exists(accounts_file):
                 with open(accounts_file, 'r') as f:
                     accounts_data = json.load(f)
-                    if accounts_data and len(accounts_data) > 0:
-                        email = accounts_data[0].get('email', 'Unknown')
+                    email = extract_email_from_accounts(accounts_data)
             
             # Obter perfil da sessão e doDesktopSearch
             if os.path.exists(config_file):
