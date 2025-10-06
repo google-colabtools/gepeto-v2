@@ -31,7 +31,9 @@ class AxiosClient {
             case proxyConfig.url.startsWith('socks'):
                 return new SocksProxyAgent(`${url}:${port}`)
             default:
-                throw new Error(`Unsupported proxy protocol: ${url}`)
+                // Default to HTTP proxy for URLs without explicit protocol
+                console.log(`No protocol specified for proxy ${url}, defaulting to HTTP`)
+                return new HttpProxyAgent(`http://${url}:${port}`)
         }
     }
 
