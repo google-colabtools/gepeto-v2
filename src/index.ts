@@ -506,22 +506,26 @@ export class MicrosoftRewardsBot {
                 const desktopPromise = this.Desktop(account).catch(e => {
                     const msg = e instanceof Error ? e.message : String(e)
                     log(false, 'TASK', `Desktop flow failed early for ${account.email}: ${msg}`,'error')
+                    log(false, 'TASK', 'Terminating bot due to desktop flow failure', 'error')
                     const bd = detectBanReason(e)
                     if (bd.status) {
                         banned.status = true; banned.reason = bd.reason.substring(0,200)
                         void this.handleImmediateBanAlert(account.email, banned.reason)
                     }
-                    errors.push(formatFullErr('desktop', e)); return null
+                    errors.push(formatFullErr('desktop', e))
+                    process.exit(1)
                 })
                 const mobilePromise = mobileInstance.Mobile(account).catch(e => {
                     const msg = e instanceof Error ? e.message : String(e)
                     log(true, 'TASK', `Mobile flow failed early for ${account.email}: ${msg}`,'error')
+                    log(true, 'TASK', 'Terminating bot due to mobile flow failure', 'error')
                     const bd = detectBanReason(e)
                     if (bd.status) {
                         banned.status = true; banned.reason = bd.reason.substring(0,200)
                         void this.handleImmediateBanAlert(account.email, banned.reason)
                     }
-                    errors.push(formatFullErr('mobile', e)); return null
+                    errors.push(formatFullErr('mobile', e))
+                    process.exit(1)
                 })
                 const [desktopResult, mobileResult] = await Promise.all([desktopPromise, mobilePromise])
                 if (desktopResult) {
@@ -537,12 +541,14 @@ export class MicrosoftRewardsBot {
                 const desktopResult = await this.Desktop(account).catch(e => {
                     const msg = e instanceof Error ? e.message : String(e)
                     log(false, 'TASK', `Desktop flow failed early for ${account.email}: ${msg}`,'error')
+                    log(false, 'TASK', 'Terminating bot due to desktop flow failure', 'error')
                     const bd = detectBanReason(e)
                     if (bd.status) {
                         banned.status = true; banned.reason = bd.reason.substring(0,200)
                         void this.handleImmediateBanAlert(account.email, banned.reason)
                     }
-                    errors.push(formatFullErr('desktop', e)); return null
+                    errors.push(formatFullErr('desktop', e))
+                    process.exit(1)
                 })
                 if (desktopResult) {
                     desktopInitial = desktopResult.initialPoints
@@ -555,12 +561,14 @@ export class MicrosoftRewardsBot {
                     const mobileResult = await this.Mobile(account).catch(e => {
                         const msg = e instanceof Error ? e.message : String(e)
                         log(true, 'TASK', `Mobile flow failed early for ${account.email}: ${msg}`,'error')
+                        log(true, 'TASK', 'Terminating bot due to mobile flow failure', 'error')
                         const bd = detectBanReason(e)
                         if (bd.status) {
                             banned.status = true; banned.reason = bd.reason.substring(0,200)
                             void this.handleImmediateBanAlert(account.email, banned.reason)
                         }
-                        errors.push(formatFullErr('mobile', e)); return null
+                        errors.push(formatFullErr('mobile', e))
+                        process.exit(1)
                     })
                     if (mobileResult) {
                         mobileInitial = mobileResult.initialPoints
