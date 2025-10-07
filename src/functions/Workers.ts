@@ -231,6 +231,7 @@ export class Workers {
 
             } catch (error) {
                 await this.bot.browser.utils.captureDiagnostics(activityPage, `activity_error_${activity.title || activity.offerId}`)
+                await this.bot.browser.utils.tryDismissAllMessages(activityPage)
                 this.bot.log(this.bot.isMobile, 'ACTIVITY', 'An error occurred:' + error, 'error')
                 throttle.record(false)
             }
