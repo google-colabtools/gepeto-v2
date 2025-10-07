@@ -56,13 +56,12 @@ check_socks_proxy() {
     if grep -q "^SOCKS_PROXY=True" configs.env; then
         echo "Iniciando servidor SOCKS to HTTP"
         
-        # Extract SOCKS configuration from configs.env
-        SOCKS_SERVER=$(grep "^SOCKS_SERVER=" configs.env | cut -d'=' -f2)
-        SOCKS_USER=$(grep "^SOCKS_USER=" configs.env | cut -d'=' -f2)
-        SOCKS_PASS=$(grep "^SOCKS_PASS=" configs.env | cut -d'=' -f2)
+        # Extract SOCKS configuration from configs.env and clean whitespace/newlines
+        SOCKS_SERVER=$(grep "^SOCKS_SERVER=" configs.env | cut -d'=' -f2 | tr -d '\n\r' | xargs)
+        SOCKS_USER=$(grep "^SOCKS_USER=" configs.env | cut -d'=' -f2 | tr -d '\n\r' | xargs)
+        SOCKS_PASS=$(grep "^SOCKS_PASS=" configs.env | cut -d'=' -f2 | tr -d '\n\r' | xargs)
         
         echo "SOCKS Server: $SOCKS_SERVER"
-        echo "SOCKS User: $SOCKS_USER"
         
         sthp -p 3129 -s $SOCKS_SERVER -u $SOCKS_USER -P $SOCKS_PASS &
         sleep 3
