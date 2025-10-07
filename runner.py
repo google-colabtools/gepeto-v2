@@ -9,9 +9,7 @@ from dotenv import load_dotenv
 load_dotenv("configs.env")
 
 # Garante que valores sejam strings e limpos
-install_bot_env = str(os.getenv("INSTALL_BOT", "EASY_INSTALL")).strip()
 config_mode_env = str(os.getenv("CONFIG_MODE", "DEFAULT_CONFIG")).strip()
-us_only_env = os.getenv("US_ONLY", "False").strip().lower() == "true"
 bot_directory_env = str(os.getenv("BOT_DIRECTORY", "")).strip()
 bot_account_env = str(os.getenv("BOT_ACCOUNT", "")).strip()
 
@@ -60,8 +58,6 @@ def run_bots():
     BOT_DIRECTORY = bot_directory_env
     BOT_ACCOUNT = bot_account_env
     CONFIG_MODE = config_mode_env
-    US_ONLY = us_only_env
-    INSTALL_BOT = install_bot_env # Se necessário para alguma lógica futura
     DISCORD_WEBHOOK_URL_LOG = discord_webhook_url_log_env
     DISCORD_WEBHOOK_URL_BR = discord_webhook_url_br_env
     DISCORD_WEBHOOK_URL_US = discord_webhook_url_us_env
@@ -95,29 +91,8 @@ def run_bots():
         pass
     else:
         rwds_functions.criar_tarefa(BOT_ACCOUNT)
-    # Verifica a localização da VM se US_ONLY estiver ativado
-    if US_ONLY:
-        print("MODO EUA ATIVADO...")
-        '''try:
-            rwds_functions.check_location()
-            print("✅ Verificação de localização concluída. VM está nos EUA.")
-            rwds_functions.send_discord_log_message(BOT_ACCOUNT, "Verificação de localização: VM está nos EUA.", DISCORD_WEBHOOK_URL_LOG)
-        except EnvironmentError as e:
-            error_message = f"❌ Erro de localização: {str(e)}. O script será encerrado."
-            print(error_message)
-            rwds_functions.send_discord_log_message(BOT_ACCOUNT, error_message, DISCORD_WEBHOOK_URL_LOG)
-            if SPACE_REPO_ID and HF_TOKEN and HF_TOKEN != "hf_":
-                rwds_functions.send_discord_log_message(BOT_ACCOUNT, "Tentando desligar o Space devido ao erro de localização...", DISCORD_WEBHOOK_URL_LOG)
-                rwds_functions.stop_space(HF_TOKEN, SPACE_REPO_ID)
-            return # Interrompe a execução de run_bots
-        except Exception as e:
-            error_message = f"❌ Erro inesperado durante check_location: {str(e)}. O script será encerrado."
-            print(error_message)
-            rwds_functions.send_discord_log_message(BOT_ACCOUNT, error_message, DISCORD_WEBHOOK_URL_LOG)
-            if SPACE_REPO_ID and HF_TOKEN and HF_TOKEN != "hf_":
-                rwds_functions.send_discord_log_message(BOT_ACCOUNT, "Tentando desligar o Space devido a erro na verificação de localização...", DISCORD_WEBHOOK_URL_LOG)
-                rwds_functions.stop_space(HF_TOKEN, SPACE_REPO_ID)
-            return # Interrompe a execução de run_bots'''
+
+
 
     folder_path = os.path.join(BASEDIR, f"{BOT_BASE_DIR_NAME}_A")
     bot_selections = {
@@ -148,9 +123,7 @@ def run_bots():
             print(f"❌ Exceção ao executar '{command_str}': {str(e)}")
 
     # Debug inicial com print
-    print(f"[DEBUG runner.py] INSTALL_BOT: '{INSTALL_BOT}'")
     print(f"[DEBUG runner.py] CONFIG_MODE: '{CONFIG_MODE}'")
-    print(f"[DEBUG runner.py] US_ONLY: {US_ONLY}")
     print(f"[DEBUG runner.py] BOT_DIRECTORY: '{BOT_DIRECTORY}'")
     print(f"[DEBUG runner.py] BOT_ACCOUNT: '{BOT_ACCOUNT}'")
     print(f"[DEBUG runner.py] DISCORD_WEBHOOK_URL_US: '{DISCORD_WEBHOOK_URL_LOG}'")
@@ -160,7 +133,6 @@ def run_bots():
     print(f"[DEBUG runner.py] HF_TOKEN: '{HF_TOKEN}'")
 
     if not os.path.exists(folder_path):
-        # A verificação US_ONLY foi movida para o início da função.
         print("Instalando bots...")
         source_mv = os.path.join(BASEDIR, BOT_BASE_DIR_NAME)
         dest_mv = os.path.join(BASEDIR, f"{BOT_BASE_DIR_NAME}_A")

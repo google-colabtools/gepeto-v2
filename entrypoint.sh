@@ -51,6 +51,51 @@ else
     fi
 fi
 
+# Function to check SOCKS proxy configuration
+check_socks_proxy() {
+    if grep -q "^SOCKS_PROXY=True" configs.env; then
+        echo "Iniciando servidor SOCKS to HTTP"
+        
+        # Extract SOCKS configuration from configs.env
+        SOCKS_SERVER=$(grep "^SOCKS_SERVER=" configs.env | cut -d'=' -f2)
+        SOCKS_USER=$(grep "^SOCKS_USER=" configs.env | cut -d'=' -f2)
+        SOCKS_PASS=$(grep "^SOCKS_PASS=" configs.env | cut -d'=' -f2)
+        
+        echo "SOCKS Server: $SOCKS_SERVER"
+        echo "SOCKS User: $SOCKS_USER"
+        
+        sthp -p 3129 -s $SOCKS_SERVER -u $SOCKS_USER -P $SOCKS_PASS &
+        sleep 3
+        
+        # Test SOCKS-to-HTTP proxy on port 3129
+        echo "Testing SOCKS-to-HTTP proxy on port 3129"
+        SOCKS_RESPONSE=$(curl -s --proxy http://127.0.0.1:3129 https://api.country.is/)
+        if [ -z "$SOCKS_RESPONSE" ]; then
+            echo "SOCKS Proxy IP: (not detected)"
+            echo "SOCKS Proxy Country: (not detected)"
+        else
+            # Extract IP and country from JSON response
+            SOCKS_IP=$(echo "$SOCKS_RESPONSE" | grep -o '"ip":"[^"]*"' | sed 's/"ip":"\([^"]*\)"/\1/')
+            SOCKS_COUNTRY=$(echo "$SOCKS_RESPONSE" | grep -o '"country":"[^"]*"' | sed 's/"country":"\([^"]*\)"/\1/')
+            
+            if [ -z "$SOCKS_IP" ]; then
+                echo "SOCKS Proxy IP: (not detected)"
+            else
+                echo "SOCKS Proxy IP: $SOCKS_IP"
+            fi
+            
+            if [ -z "$SOCKS_COUNTRY" ]; then
+                echo "SOCKS Proxy Country: (not detected)"
+            else
+                echo "SOCKS Proxy Country: $SOCKS_COUNTRY"
+            fi
+        fi
+    fi
+}
+
+# Check SOCKS proxy configuration
+check_socks_proxy
+
 # Function to check available disk space
 check_disk_space() {
     echo "=== Disk Space Information ==="

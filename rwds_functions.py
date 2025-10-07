@@ -82,9 +82,10 @@ def extract_email_from_accounts(accounts_data):
 load_dotenv("configs.env")
 
 bot_acc_env = str(os.getenv("BOT_ACCOUNT", "")).strip()
+socks_proxy_env = str(os.getenv("SOCKS_PROXY", "False")).strip().lower() == "true"
 discord_webhook_log_env = os.getenv("DISCORD_WEBHOOK_URL_LOG", "").strip()
 
-
+SOCKS_PROXY = socks_proxy_env
 # TODOIST
 todoist_api_env = str(os.getenv("TODOIST_API", "")).strip()
 TODOIST_API_TOKEN = todoist_api_env
@@ -292,6 +293,40 @@ def clean_account_proxys(account_file):
             json.dump(dados, f, indent=4)
 
         print(f"['{account_file}'] Proxy local definido com sucesso.")
+
+    except Exception as e:
+        print(f"Ocorreu um erro: {e}")
+
+def set_socks_proxy(account_file):
+    try:
+        # Abre o arquivo e carrega o conteúdo JSON
+        with open(account_file, 'r', encoding='utf-8') as f:
+            dados = json.load(f)
+        
+        # Detectar formato: wrapper ou array direto
+        if isinstance(dados, dict) and 'accounts' in dados:
+            # Formato antigo: {'accounts': [...]}
+            accounts_list = dados['accounts']
+        elif isinstance(dados, list):
+            # Formato novo: [...]
+            accounts_list = dados
+        else:
+            print(f"Formato inválido no arquivo {account_file}")
+            return
+        
+        # Modifica o campo 'proxy' para cada item na lista
+        for item in accounts_list:
+            if 'proxy' in item:
+                item['proxy']['url'] = "127.0.0.1"
+                item['proxy']['port'] = 3129
+                item['proxy']['username'] = ""
+                item['proxy']['password'] = ""
+        
+        # Salva o arquivo de volta com as alterações
+        with open(account_file, 'w', encoding='utf-8') as f:
+            json.dump(dados, f, indent=4)
+
+        print(f"['{account_file}'] Proxy SOCKS_TO_HTTP ativado para {account_file} com sucesso.")
 
     except Exception as e:
         print(f"Ocorreu um erro: {e}")
@@ -564,7 +599,7 @@ def download_and_extract_bot_A(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         subprocess.run(f"unzip -o {zip_file_name}", shell=True, check=True)
 
         print(f"Removendo {zip_file_name}...")
-        subprocess.run(f"rm -f {zip_file_name}", shell=True, check=True) # Adicionado -f para forçar
+        subprocess.run(f"rm -f {zip_file_name}", shell=True, check=True)
 
         if CONFIG_MODE == "GEN_COOKIE_CONFIG":
             print("Aplicando proxy local para geração de cookies...")
@@ -573,6 +608,10 @@ def download_and_extract_bot_A(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         if CONFIG_MODE == "DEFAULT_CONFIG_US":
             print("Aplicando proxy local para configuração padrão dos EUA...")
             clean_account_proxys("src/accounts.json")
+
+        if SOCKS_PROXY == True:
+            print("Ativando proxy SOCKS_TO_HTTP para accounts.json...")
+            set_socks_proxy("src/accounts.json")
 
         if CONFIG_MODE != "ZIP":
             config_json_url = f"https://drive.kingvegeta.workers.dev/1:/Files/rewanced/_{CONFIG_MODE}.json"
@@ -632,6 +671,10 @@ def download_and_extract_bot_B(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
             print("Aplicando proxy local para configuração padrão dos EUA...")
             clean_account_proxys("src/accounts.json")
 
+        if SOCKS_PROXY == True:
+            print("Ativando proxy SOCKS_TO_HTTP para accounts.json...")
+            set_socks_proxy("src/accounts.json")
+
         if CONFIG_MODE != "ZIP":
             config_json_url = f"https://drive.kingvegeta.workers.dev/1:/Files/rewanced/_{CONFIG_MODE}.json"
             print(f"Baixando config.json ({CONFIG_MODE}) de {config_json_url}...")
@@ -689,6 +732,10 @@ def download_and_extract_bot_C(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         if CONFIG_MODE == "DEFAULT_CONFIG_US":
             print("Aplicando proxy local para configuração padrão dos EUA...")
             clean_account_proxys("src/accounts.json")
+
+        if SOCKS_PROXY == True:
+            print("Ativando proxy SOCKS_TO_HTTP para accounts.json...")
+            set_socks_proxy("src/accounts.json")
 
         if CONFIG_MODE != "ZIP":
             config_json_url = f"https://drive.kingvegeta.workers.dev/1:/Files/rewanced/_{CONFIG_MODE}.json"
@@ -748,6 +795,10 @@ def download_and_extract_bot_D(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
             print("Aplicando proxy local para configuração padrão dos EUA...")
             clean_account_proxys("src/accounts.json")
 
+        if SOCKS_PROXY == True:
+            print("Ativando proxy SOCKS_TO_HTTP para accounts.json...")
+            set_socks_proxy("src/accounts.json")
+
         if CONFIG_MODE != "ZIP":
             config_json_url = f"https://drive.kingvegeta.workers.dev/1:/Files/rewanced/_{CONFIG_MODE}.json"
             print(f"Baixando config.json ({CONFIG_MODE}) de {config_json_url}...")
@@ -805,6 +856,10 @@ def download_and_extract_bot_E(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         if CONFIG_MODE == "DEFAULT_CONFIG_US":
             print("Aplicando proxy local para configuração padrão dos EUA...")
             clean_account_proxys("src/accounts.json")
+
+        if SOCKS_PROXY == True:
+            print("Ativando proxy SOCKS_TO_HTTP para accounts.json...")
+            set_socks_proxy("src/accounts.json")
 
         if CONFIG_MODE != "ZIP":
             config_json_url = f"https://drive.kingvegeta.workers.dev/1:/Files/rewanced/_{CONFIG_MODE}.json"
@@ -1103,6 +1158,7 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
         "[LOGIN] An error occurred: TimeoutError",
         "Error running desktop bot",
         "Too Many Requests",
+        "Terminating bot due to",
         #"[LOGIN] Email field not found",
         "Error: SyntaxError"
     ]
