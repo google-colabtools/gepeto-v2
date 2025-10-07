@@ -63,7 +63,7 @@ check_socks_proxy() {
         
         echo "SOCKS Server: $SOCKS_SERVER"
         
-        sthp -p 3129 -s $SOCKS_SERVER -u $SOCKS_USER -P $SOCKS_PASS &
+        sthp -p 3129 -s $SOCKS_SERVER -u $SOCKS_USER -P $SOCKS_PASS &> /dev/null &
         sleep 3
         
         # Test SOCKS-to-HTTP proxy on port 3129
