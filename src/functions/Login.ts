@@ -189,6 +189,7 @@ export class Login {
       const htmlPath = `./reports/email_field_error_${timestamp}.html`;
       const html = await page.content();
       await fs.promises.writeFile(htmlPath, html);
+      //===================================
       return
     }
     const prefilled = await page.waitForSelector('#userDisplayName', { timeout: 1500 }).catch(() => null)
@@ -338,6 +339,15 @@ export class Login {
         await this.bot.utils.wait(1000)
       }
     } catch (e) {
+      //screenlog
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const screenshotPath = `./reports/bing_verification_error_${timestamp}.png`;
+      await fs.promises.mkdir(path.dirname(screenshotPath), { recursive: true });
+      await page.screenshot({ path: screenshotPath });
+      const htmlPath = `./reports/bing_verification_error_${timestamp}.html`;
+      const html = await page.content();
+      await fs.promises.writeFile(htmlPath, html);
+      //===================================
       this.bot.log(this.bot.isMobile, 'LOGIN-BING', 'Bing verification error: ' + e, 'warn')
     }
   }

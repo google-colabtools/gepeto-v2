@@ -91,75 +91,161 @@ export default class BrowserFunc {
     */
     async getDashboardData(page?: Page): Promise<DashboardData> {
         const target = page ?? this.bot.homePage
-        const dashboardURL = new URL(this.bot.config.baseURL)
-        const currentURL = new URL(target.url())
+        const maxRetries = 5;
+        const retryDelay = 10000;
+        let lastError: any;
 
-        try {
-            // Should never happen since tasks are opened in a new tab!
-            if (currentURL.hostname !== dashboardURL.hostname) {
-                this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', 'Provided page did not equal dashboard page, redirecting to dashboard page')
-                await this.goHome(target)
-            }
-                let lastError: unknown = null
-            for (let attempt = 1; attempt <= 2; attempt++) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const dashboardURL = new URL(this.bot.config.baseURL)
+                const currentURL = new URL(target.url())
+
+                if (currentURL.hostname !== dashboardURL.hostname) {
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', 'Provided page did not equal dashboard page, redirecting to dashboard page')
+                    await this.goHome(target)
+                }
+
+                // Check for and reload bad pages (network errors)
+                await this.bot.browser.utils.reloadBadPage(target)
+
+                // Ensure to wait long enough before reload
+                await this.bot.utils.wait(5000);
+
+                // Progressive timeout strategy: 30s, 45s, 60s, 75s, 90s
+                const reloadTimeout = Math.min(30000 + (attempt - 1) * 15000, 90000);
+                
                 try {
-                    // Reload the page to get new data
-                    await target.reload({ waitUntil: 'domcontentloaded' })
-                    lastError = null
-                    break
-                } catch (re) {
-                    lastError = re
-                    const msg = (re instanceof Error ? re.message : String(re))
-                    this.bot.log(this.bot.isMobile, 'GET-DASHBOARD-DATA', `Reload failed attempt ${attempt}: ${msg}`, 'warn')
-                    // If page/context closed => bail early after first retry
-                    if (msg.includes('has been closed')) {
-                        if (attempt === 1) {
-                            this.bot.log(this.bot.isMobile, 'GET-DASHBOARD-DATA', 'Page appears closed; trying one navigation fallback', 'warn')
-                            try {
-                                await this.goHome(target)
-                            } catch {/* ignore */}
-                        } else {
-                            break
+                    // Try reload with networkidle first
+                    await target.reload({ waitUntil: 'networkidle', timeout: reloadTimeout })
+                } catch (reloadError: any) {
+                    // If networkidle fails, try with 'load' as fallback
+                    if (reloadError.message?.includes('Timeout')) {
+                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `NetworkIdle timeout, trying 'load' fallback (attempt ${attempt})`, 'warn')
+                        await target.reload({ waitUntil: 'load', timeout: Math.min(reloadTimeout, 60000) })
+                    } else {
+                        throw reloadError
+                    }
+                }
+                
+                // Try to wait for #more-activities but continue if it fails
+                try {
+                    await target.waitForSelector('#more-activities', { timeout: 8000 })
+                } catch {
+                    // Continue without '#more-activities' - no warning needed
+                }
+                
+                // Extra wait to ensure scripts are fully loaded
+                await this.bot.utils.waitRandom(3000, 5000); // 3-5 seconds random wait
+
+                // Multiple attempts to get script content
+                let scriptContent = null;
+                for (let scriptAttempt = 1; scriptAttempt <= 3; scriptAttempt++) {
+                    scriptContent = await target.evaluate(() => {
+                        const scripts = Array.from(document.querySelectorAll('script'))
+                        const targetScript = scripts.find(script => 
+                            script.innerText && (
+                                script.innerText.includes('var dashboard') || 
+                                script.innerText.includes('dashboard =') ||
+                                script.innerText.includes('_w.dashboard')
+                            )
+                        )
+                        return targetScript?.innerText || null
+                    })
+                    
+                    if (scriptContent) {
+                        break;
+                    }
+                    
+                    if (scriptAttempt < 3) {
+                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Script attempt ${scriptAttempt}/3 failed, waiting 2s...`, 'warn')
+                        await this.bot.utils.wait(2000);
+                    }
+                }
+
+                if (!scriptContent) {
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Attempt ${attempt}: Dashboard data not found after 3 script attempts, waiting to retry...`, 'warn')
+                    throw new Error('Dashboard data not found within script')
+                }
+
+                const dashboardData = await target.evaluate((scriptContent: string) => {
+                    try {
+                        // Try multiple possible extraction methods
+                        const regexes = [
+                            /var dashboard = (\{.*?\});/s,
+                            /dashboard = (\{.*?\});/s,
+                            /\_w\.dashboard = (\{.*?\});/s
+                        ]
+                        
+                        for (const regex of regexes) {
+                            const match = regex.exec(scriptContent)
+                            if (match && match[1]) {
+                                return JSON.parse(match[1])
+                            }
+                        }
+                        return null
+                    } catch (e) {
+                        console.error('Failed to parse dashboard data:', e)
+                        return null
+                    }
+                }, scriptContent)
+
+                if (!dashboardData) {
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Attempt ${attempt}: Failed to parse dashboard data, waiting to retry...`, 'warn')
+                    throw new Error('Unable to parse dashboard script')
+                }
+
+                if (attempt > 1) {
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Successfully fetched dashboard data, attempts: ${attempt}`)
+                }
+
+                return dashboardData
+
+            } catch (error: any) {
+                lastError = error
+                const errorMessage = error?.message || 'Unknown error'
+                
+                // Specific strategies for different error types
+                if (errorMessage.includes('net::ERR_TIMED_OUT')) {
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Network timeout on attempt ${attempt}, trying page refresh...`, 'warn')
+                    try {
+                        await target.reload({ waitUntil: 'load', timeout: 60000 })
+                    } catch (reloadError) {
+                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', 'Page reload failed, will retry from beginning', 'error')
+                    }
+                } else if (errorMessage.includes('net::ERR_ABORTED')) {
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Page reload aborted on attempt ${attempt}, will retry...`, 'warn')
+                    // For aborted requests, just wait and retry - no additional action needed
+                } else if (errorMessage.includes('Timeout') && errorMessage.includes('reload')) {
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Reload timeout on attempt ${attempt}, will retry with longer timeout...`, 'warn')
+                    // No extra action, just wait for retry
+                } else if (errorMessage.includes('Navigation') || errorMessage.includes('navigation')) {
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Navigation error on attempt ${attempt}, redirecting home...`, 'warn')
+                    try {
+                        await this.goHome(target)
+                    } catch (homeError) {
+                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', 'Failed to navigate home, will retry from current state', 'warn')
+                    }
+                }
+                
+                if (attempt < maxRetries) {
+                    const waitTime = retryDelay + (attempt - 1) * 2000; // Progressive delay: 10s, 12s, 14s, 16s
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Attempt ${attempt}/${maxRetries} failed: ${errorMessage}. Retrying in ${waitTime/1000} seconds...`, 'warn')
+                    await this.bot.utils.wait(waitTime)
+                    
+                    // Try to refresh login status before retry (only on attempt 2)
+                    if (attempt === 2) {
+                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', 'Trying to revalidate login status...')
+                        try {
+                            await this.goHome(target)
+                        } catch (homeError) {
+                            this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', 'Login revalidation failed, continuing with retry...', 'warn')
                         }
                     }
-                    if (attempt === 2 && lastError) throw lastError
-                    await this.bot.utils.wait(1000)
                 }
             }
-
-            const scriptContent = await target.evaluate(() => {
-                const scripts = Array.from(document.querySelectorAll('script'))
-                const targetScript = scripts.find(script => script.innerText.includes('var dashboard'))
-
-                return targetScript?.innerText ? targetScript.innerText : null
-            })
-
-            if (!scriptContent) {
-                throw this.bot.log(this.bot.isMobile, 'GET-DASHBOARD-DATA', 'Dashboard data not found within script', 'error')
-            }
-
-            // Extract the dashboard object from the script content
-            const dashboardData = await target.evaluate((scriptContent: string) => {
-                // Extract the dashboard object using regex
-                const regex = /var dashboard = (\{.*?\});/s
-                const match = regex.exec(scriptContent)
-
-                if (match && match[1]) {
-                    return JSON.parse(match[1])
-                }
-
-            }, scriptContent)
-
-            if (!dashboardData) {
-                throw this.bot.log(this.bot.isMobile, 'GET-DASHBOARD-DATA', 'Unable to parse dashboard script', 'error')
-            }
-
-            return dashboardData
-
-        } catch (error) {
-            throw this.bot.log(this.bot.isMobile, 'GET-DASHBOARD-DATA', `Error fetching dashboard data: ${error}`, 'error')
         }
 
+        throw this.bot.log(this.bot.isMobile, 'GET-DASHBOARD-DATA', `Failed after ${maxRetries} attempts. Last error: ${lastError}`, 'error')
     }
 
     /**
