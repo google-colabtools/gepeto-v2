@@ -117,7 +117,16 @@ export class Login {
       this.bot.log(this.bot.isMobile, 'LOGIN', 'Starting login process')
       this.currentTotpSecret = (totpSecret && totpSecret.trim()) || undefined
 
-      await page.goto('https://rewards.bing.com/signin')
+      // Simple retry for initial navigation
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await page.goto('https://rewards.bing.com/signin', { timeout: 10000 })
+          break
+        } catch (error) {
+          if (attempt === 3) throw error
+          await this.bot.utils.wait(1500)
+        }
+      }
       await this.disableFido(page)
       await page.waitForLoadState('domcontentloaded').catch(() => { })
       await this.bot.browser.utils.reloadBadPage(page)
