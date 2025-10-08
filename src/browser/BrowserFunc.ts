@@ -32,7 +32,54 @@ export default class BrowserFunc {
                 return
             }
 
-            await page.goto(this.bot.config.baseURL)
+            // Retry logic for initial page.goto with progressive timeouts
+            const maxAttempts = 5
+            
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    // Progressive timeout: 30s, 45s, 60s, 75s, 90s
+                    const timeout = Math.min(30000 + (attempt - 1) * 15000, 90000)
+                    
+                    this.bot.log(this.bot.isMobile, 'GO-HOME', 
+                        attempt === 1 
+                            ? `Navigating to homepage (${timeout/1000}s timeout)` 
+                            : `Retry ${attempt}/${maxAttempts}: Navigating to homepage (${timeout/1000}s timeout)`, 
+                        attempt === 1 ? 'log' : 'warn'
+                    )
+                    
+                    await page.goto(this.bot.config.baseURL, { 
+                        waitUntil: 'load', 
+                        timeout: timeout 
+                    })
+                    
+                    if (attempt > 1) {
+                        this.bot.log(this.bot.isMobile, 'GO-HOME', `Successfully navigated after ${attempt} attempts`)
+                    }
+                    break // Success, exit retry loop
+                    
+                } catch (error: any) {
+                    const errorMessage = (error?.message || 'Unknown error')
+                        .split('\n')[0] // Take only first line, ignore Call log
+                        .replace(/Call log:.*$/s, '') // Remove Call log section
+                        .trim()
+                    
+                    if (attempt < maxAttempts) {
+                        const waitTime = 2000 + (attempt - 1) * 1000 // Progressive delay: 2s, 3s, 4s, 5s
+                        this.bot.log(this.bot.isMobile, 'GO-HOME', 
+                            `Navigation failed (attempt ${attempt}/${maxAttempts}): ${errorMessage}. Retrying in ${waitTime/1000}s...`, 
+                            'warn'
+                        )
+                        await this.bot.utils.wait(waitTime)
+                    } else {
+                        // Final attempt failed
+                        this.bot.log(this.bot.isMobile, 'GO-HOME', 
+                            `All ${maxAttempts} navigation attempts failed. Last error: ${errorMessage}`, 
+                            'error'
+                        )
+                        throw error
+                    }
+                }
+            }
 
             const maxIterations = 5 // Maximum iterations set to 5
 
@@ -71,7 +118,55 @@ export default class BrowserFunc {
                     await this.bot.browser.utils.tryDismissAllMessages(page)
 
                     await this.bot.utils.wait(2000)
-                    await page.goto(this.bot.config.baseURL)
+                    
+                    // Retry logic for secondary page.goto with shorter timeout since we're in a loop
+                    const secondaryMaxAttempts = 3
+                    
+                    for (let secondaryAttempt = 1; secondaryAttempt <= secondaryMaxAttempts; secondaryAttempt++) {
+                        try {
+                            // Use shorter timeout for secondary attempts: 30s, 45s, 60s
+                            const secondaryTimeout = Math.min(30000 + (secondaryAttempt - 1) * 15000, 60000)
+                            
+                            this.bot.log(this.bot.isMobile, 'GO-HOME', 
+                                secondaryAttempt === 1 
+                                    ? `Secondary navigation to homepage (${secondaryTimeout/1000}s timeout)` 
+                                    : `Secondary retry ${secondaryAttempt}/${secondaryMaxAttempts}: Navigation to homepage (${secondaryTimeout/1000}s timeout)`, 
+                                secondaryAttempt === 1 ? 'log' : 'warn'
+                            )
+                            
+                            await page.goto(this.bot.config.baseURL, { 
+                                waitUntil: 'load', 
+                                timeout: secondaryTimeout 
+                            })
+                            
+                            if (secondaryAttempt > 1) {
+                                this.bot.log(this.bot.isMobile, 'GO-HOME', `Secondary navigation succeeded after ${secondaryAttempt} attempts`)
+                            }
+                            break // Success, exit retry loop
+                            
+                        } catch (error: any) {
+                            const errorMessage = (error?.message || 'Unknown error')
+                                .split('\n')[0] // Take only first line, ignore Call log
+                                .replace(/Call log:.*$/s, '') // Remove Call log section
+                                .trim()
+                            
+                            if (secondaryAttempt < secondaryMaxAttempts) {
+                                const waitTime = 1000 + (secondaryAttempt - 1) * 500 // Progressive delay: 1s, 1.5s
+                                this.bot.log(this.bot.isMobile, 'GO-HOME', 
+                                    `Secondary navigation failed (attempt ${secondaryAttempt}/${secondaryMaxAttempts}): ${errorMessage}. Retrying in ${waitTime/1000}s...`, 
+                                    'warn'
+                                )
+                                await this.bot.utils.wait(waitTime)
+                            } else {
+                                // Final attempt failed - log warning but continue with outer loop
+                                this.bot.log(this.bot.isMobile, 'GO-HOME', 
+                                    `Secondary navigation failed after ${secondaryMaxAttempts} attempts: ${errorMessage}. Continuing with iteration ${iteration}...`, 
+                                    'warn'
+                                )
+                                // Don't throw here, let the outer loop handle it
+                            }
+                        }
+                    }
                 } else {
                     this.bot.log(this.bot.isMobile, 'GO-HOME', 'Visited homepage successfully')
                     break
@@ -202,7 +297,11 @@ export default class BrowserFunc {
 
             } catch (error: any) {
                 lastError = error
-                const errorMessage = error?.message || 'Unknown error'
+                // Clean up Playwright Call log noise
+                const errorMessage = (error?.message || 'Unknown error')
+                    .split('\n')[0] // Take only first line, ignore Call log
+                    .replace(/Call log:.*$/s, '') // Remove Call log section
+                    .trim()
                 
                 // Specific strategies for different error types
                 if (errorMessage.includes('net::ERR_TIMED_OUT')) {
@@ -229,7 +328,7 @@ export default class BrowserFunc {
                 
                 if (attempt < maxRetries) {
                     const waitTime = retryDelay + (attempt - 1) * 2000; // Progressive delay: 10s, 12s, 14s, 16s
-                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Attempt ${attempt}/${maxRetries} failed: ${errorMessage}. Retrying in ${waitTime/1000} seconds...`, 'warn')
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Retry ${attempt}/${maxRetries} in ${waitTime/1000}s: ${errorMessage}`, 'warn')
                     await this.bot.utils.wait(waitTime)
                     
                     // Try to refresh login status before retry (only on attempt 2)
@@ -245,7 +344,7 @@ export default class BrowserFunc {
             }
         }
 
-        throw this.bot.log(this.bot.isMobile, 'GET-DASHBOARD-DATA', `Failed after ${maxRetries} attempts. Last error: ${lastError}`, 'error')
+        throw this.bot.log(this.bot.isMobile, 'GET-DASHBOARD-DATA', `Failed after ${maxRetries} attempts. Last error: ${(lastError?.message || lastError || 'Unknown error').split('\n')[0]}`, 'error')
     }
 
     /**

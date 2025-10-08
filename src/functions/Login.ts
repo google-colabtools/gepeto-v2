@@ -69,6 +69,48 @@ export class Login {
 
   constructor(bot: MicrosoftRewardsBot) { this.bot = bot }
 
+  // --------------- Screenshot Helper ---------------
+  private async safeScreenshot(page: Page, filePath: string, context: string = 'unknown'): Promise<boolean> {
+    try {
+      // Check if page is still valid
+      if (!page || page.isClosed()) {
+        this.bot.log(this.bot.isMobile, 'SCREENSHOT', `Page is closed, skipping screenshot for ${context}`, 'warn');
+        return false;
+      }
+
+      // Wait for the page to be in a stable state
+      await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {
+        this.bot.log(this.bot.isMobile, 'SCREENSHOT', `Page not ready for ${context}, proceeding anyway`, 'warn');
+      });
+
+      // Create directory if it doesn't exist
+      await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+
+      // Try screenshot with increased timeout and fallback options
+      await page.screenshot({ 
+        path: filePath, 
+        timeout: 20000, // Increased to 20 seconds
+        fullPage: false, // Avoid full page to reduce timeout risk
+        animations: 'disabled' // Disable animations to speed up
+      });
+
+      this.bot.log(this.bot.isMobile, 'SCREENSHOT', `Screenshot saved successfully: ${filePath}`);
+      return true;
+    } catch (screenshotError) {
+      this.bot.log(this.bot.isMobile, 'SCREENSHOT', `Screenshot failed for ${context}: ${screenshotError}`, 'warn');
+      
+      // Try a simpler screenshot without options as fallback
+      try {
+        await page.screenshot({ path: filePath, timeout: 5000 });
+        this.bot.log(this.bot.isMobile, 'SCREENSHOT', `Fallback screenshot succeeded: ${filePath}`);
+        return true;
+      } catch (fallbackError) {
+        this.bot.log(this.bot.isMobile, 'SCREENSHOT', `Fallback screenshot also failed for ${context}: ${fallbackError}`, 'warn');
+        return false;
+      }
+    }
+  }
+
   // --------------- Public API ---------------
   async login(page: Page, email: string, password: string, totpSecret?: string) {
     try {
@@ -90,7 +132,6 @@ export class Login {
           this.bot.log(this.bot.isMobile, 'LOGIN', `"Skip for now" button found and clicked (attempt ${attempt}).`);
           await this.bot.utils.wait(5000); // Espera antes de tentar novamente
         } else if (!skipButtonFound) {
-          this.bot.log(this.bot.isMobile, 'LOGIN', `Verifying for 'Skip for now' buttons.`);
           break;
         } else {
           this.bot.log(this.bot.isMobile, 'LOGIN', `"No more 'Skip for now' button found. Stopping.`);
@@ -184,8 +225,7 @@ export class Login {
       //screenlog
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const screenshotPath = `./reports/email_field_error_${timestamp}.png`;
-      await fs.promises.mkdir(path.dirname(screenshotPath), { recursive: true });
-      await page.screenshot({ path: screenshotPath, timeout: 10000 }).catch(screenshotError => this.bot.log(this.bot.isMobile, 'LOGIN', 'Screenshot failed: ' + screenshotError, 'warn'));
+      await this.safeScreenshot(page, screenshotPath, 'email_field_error');
       const htmlPath = `./reports/email_field_error_${timestamp}.html`;
       const html = await page.content();
       await fs.promises.writeFile(htmlPath, html);
@@ -218,8 +258,7 @@ export class Login {
       //screenlog
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const screenshotPath = `./reports/password_field_error_${timestamp}.png`;
-      await fs.promises.mkdir(path.dirname(screenshotPath), { recursive: true });
-      await page.screenshot({ path: screenshotPath, timeout: 10000 }).catch(screenshotError => this.bot.log(this.bot.isMobile, 'LOGIN', 'Screenshot failed: ' + screenshotError, 'warn'));
+      await this.safeScreenshot(page, screenshotPath, 'password_field_error');
       const htmlPath = `./reports/password_field_error_${timestamp}.html`;
       const html = await page.content();
       await fs.promises.writeFile(htmlPath, html);
@@ -343,8 +382,7 @@ export class Login {
       //screenlog
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const screenshotPath = `./reports/bing_verification_error_${timestamp}.png`;
-      await fs.promises.mkdir(path.dirname(screenshotPath), { recursive: true });
-      await page.screenshot({ path: screenshotPath, timeout: 10000 }).catch(screenshotError => this.bot.log(this.bot.isMobile, 'LOGIN', 'Screenshot failed: ' + screenshotError, 'warn'));
+      await this.safeScreenshot(page, screenshotPath, 'bing_verification_error');
       const htmlPath = `./reports/bing_verification_error_${timestamp}.html`;
       const html = await page.content();
       await fs.promises.writeFile(htmlPath, html);

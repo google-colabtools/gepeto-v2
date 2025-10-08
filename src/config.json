@@ -8,7 +8,7 @@
         // Run browser without UI (true=headless, false=visible). Visible can help with stability.
         "headless": false,
         // Max time to wait for common operations (supports ms/s/min: e.g. 30000, "30s", "2min")
-        "globalTimeout": "30s"
+        "globalTimeout": "60s"
     },
     
     "execution": {

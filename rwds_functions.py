@@ -1300,7 +1300,9 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
                                         # Enviar mensagem para Discord com detalhes do erro
                                         DISCORD_WEBHOOK_LOG = discord_webhook_log_env
                                         BOT_ACC = bot_acc_env
-                                        error_message = f"Reiniciando Bot {bot_letter} após erro crítico: {last_critical_error}"
+                                        # Limpar a mensagem de erro antes de enviar
+                                        cleaned_error = clean_error_message(last_critical_error)
+                                        error_message = f"Reiniciando Bot {bot_letter} após erro crítico: {cleaned_error}"
                                         send_discord_log_message(BOT_ACC, error_message, DISCORD_WEBHOOK_LOG)
                                         
                                         # Encerrar o processo atual
@@ -1593,6 +1595,24 @@ def kill_all_bots():
     
     # Retornar True para indicar sucesso na operação
     return True
+
+def clean_error_message(error_message):
+    """
+    Limpa mensagens de erro para remover timestamps verbosos e IDs de processo,
+    mantendo apenas as partes essenciais para logs mais concisos.
+    """
+    import re
+    
+    # Remove timestamps verbosos no formato [10/7/2025, 11:41:56 PM] ou similares
+    cleaned = re.sub(r'\[\d{1,2}/\d{1,2}/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[APM]{2}\]', '', error_message)
+    
+    # Remove IDs de processo no formato [7012] ou similares
+    cleaned = re.sub(r'\[\d+\]', '', cleaned)
+    
+    # Remove múltiplos espaços em branco e limpa o início/fim
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    
+    return cleaned
 
 def send_discord_log_message(bot_account, message_content, discord_webhook_url_log):
     """Envia uma mensagem de log para o webhook do Discord especificado."""
