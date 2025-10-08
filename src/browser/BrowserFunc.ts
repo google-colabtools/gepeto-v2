@@ -40,20 +40,19 @@ export default class BrowserFunc {
                     // Progressive timeout: 30s, 45s, 60s, 75s, 90s
                     const timeout = Math.min(30000 + (attempt - 1) * 15000, 90000)
                     
-                    this.bot.log(this.bot.isMobile, 'GO-HOME', 
-                        attempt === 1 
-                            ? `Navigating to homepage (${timeout/1000}s timeout)` 
-                            : `Retry ${attempt}/${maxAttempts}: Navigating to homepage (${timeout/1000}s timeout)`, 
-                        attempt === 1 ? 'log' : 'warn'
-                    )
+                    // Only log on first attempt or if it's a retry
+                    if (attempt === 1) {
+                        this.bot.log(this.bot.isMobile, 'GO-HOME', `Navigating to homepage (${timeout/1000}s timeout)`)
+                    }
                     
                     await page.goto(this.bot.config.baseURL, { 
                         waitUntil: 'load', 
                         timeout: timeout 
                     })
                     
+                    // Only log success if there were retries
                     if (attempt > 1) {
-                        this.bot.log(this.bot.isMobile, 'GO-HOME', `Successfully navigated after ${attempt} attempts`)
+                        this.bot.log(this.bot.isMobile, 'GO-HOME', `Navigation succeeded after ${attempt} attempts`)
                     }
                     break // Success, exit retry loop
                     
@@ -66,7 +65,7 @@ export default class BrowserFunc {
                     if (attempt < maxAttempts) {
                         const waitTime = 2000 + (attempt - 1) * 1000 // Progressive delay: 2s, 3s, 4s, 5s
                         this.bot.log(this.bot.isMobile, 'GO-HOME', 
-                            `Navigation failed (attempt ${attempt}/${maxAttempts}): ${errorMessage}. Retrying in ${waitTime/1000}s...`, 
+                            `Navigation failed, retry ${attempt}/${maxAttempts} in ${waitTime/1000}s`, 
                             'warn'
                         )
                         await this.bot.utils.wait(waitTime)
@@ -127,40 +126,34 @@ export default class BrowserFunc {
                             // Use shorter timeout for secondary attempts: 30s, 45s, 60s
                             const secondaryTimeout = Math.min(30000 + (secondaryAttempt - 1) * 15000, 60000)
                             
-                            this.bot.log(this.bot.isMobile, 'GO-HOME', 
-                                secondaryAttempt === 1 
-                                    ? `Secondary navigation to homepage (${secondaryTimeout/1000}s timeout)` 
-                                    : `Secondary retry ${secondaryAttempt}/${secondaryMaxAttempts}: Navigation to homepage (${secondaryTimeout/1000}s timeout)`, 
-                                secondaryAttempt === 1 ? 'log' : 'warn'
-                            )
+                            // Only log on first secondary attempt
+                            if (secondaryAttempt === 1) {
+                                this.bot.log(this.bot.isMobile, 'GO-HOME', `Redirecting to homepage`)
+                            }
                             
                             await page.goto(this.bot.config.baseURL, { 
                                 waitUntil: 'load', 
                                 timeout: secondaryTimeout 
                             })
                             
+                            // Only log if there were retries
                             if (secondaryAttempt > 1) {
-                                this.bot.log(this.bot.isMobile, 'GO-HOME', `Secondary navigation succeeded after ${secondaryAttempt} attempts`)
+                                this.bot.log(this.bot.isMobile, 'GO-HOME', `Redirection succeeded after ${secondaryAttempt} attempts`)
                             }
                             break // Success, exit retry loop
                             
                         } catch (error: any) {
-                            const errorMessage = (error?.message || 'Unknown error')
-                                .split('\n')[0] // Take only first line, ignore Call log
-                                .replace(/Call log:.*$/s, '') // Remove Call log section
-                                .trim()
-                            
                             if (secondaryAttempt < secondaryMaxAttempts) {
                                 const waitTime = 1000 + (secondaryAttempt - 1) * 500 // Progressive delay: 1s, 1.5s
                                 this.bot.log(this.bot.isMobile, 'GO-HOME', 
-                                    `Secondary navigation failed (attempt ${secondaryAttempt}/${secondaryMaxAttempts}): ${errorMessage}. Retrying in ${waitTime/1000}s...`, 
+                                    `Redirection failed, retry ${secondaryAttempt}/${secondaryMaxAttempts} in ${waitTime/1000}s`, 
                                     'warn'
                                 )
                                 await this.bot.utils.wait(waitTime)
                             } else {
                                 // Final attempt failed - log warning but continue with outer loop
                                 this.bot.log(this.bot.isMobile, 'GO-HOME', 
-                                    `Secondary navigation failed after ${secondaryMaxAttempts} attempts: ${errorMessage}. Continuing with iteration ${iteration}...`, 
+                                    `Redirection failed after ${secondaryMaxAttempts} attempts, continuing...`, 
                                     'warn'
                                 )
                                 // Don't throw here, let the outer loop handle it
@@ -215,7 +208,7 @@ export default class BrowserFunc {
                 } catch (reloadError: any) {
                     // If networkidle fails, try with 'load' as fallback
                     if (reloadError.message?.includes('Timeout')) {
-                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `NetworkIdle timeout, trying 'load' fallback (attempt ${attempt})`, 'warn')
+                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `NetworkIdle timeout, using load fallback`, 'warn')
                         await target.reload({ waitUntil: 'load', timeout: Math.min(reloadTimeout, 60000) })
                     } else {
                         throw reloadError
@@ -252,13 +245,13 @@ export default class BrowserFunc {
                     }
                     
                     if (scriptAttempt < 3) {
-                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Script attempt ${scriptAttempt}/3 failed, waiting 2s...`, 'warn')
+                        this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Script not found, retrying ${scriptAttempt}/3`, 'warn')
                         await this.bot.utils.wait(2000);
                     }
                 }
 
                 if (!scriptContent) {
-                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Attempt ${attempt}: Dashboard data not found after 3 script attempts, waiting to retry...`, 'warn')
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Dashboard data not found, retry ${attempt}/${maxRetries}`, 'warn')
                     throw new Error('Dashboard data not found within script')
                 }
 
@@ -285,7 +278,7 @@ export default class BrowserFunc {
                 }, scriptContent)
 
                 if (!dashboardData) {
-                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Attempt ${attempt}: Failed to parse dashboard data, waiting to retry...`, 'warn')
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Failed to parse dashboard data, retry ${attempt}/${maxRetries}`, 'warn')
                     throw new Error('Unable to parse dashboard script')
                 }
 
@@ -305,20 +298,20 @@ export default class BrowserFunc {
                 
                 // Specific strategies for different error types
                 if (errorMessage.includes('net::ERR_TIMED_OUT')) {
-                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Network timeout on attempt ${attempt}, trying page refresh...`, 'warn')
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Network timeout, attempting page refresh`, 'warn')
                     try {
                         await target.reload({ waitUntil: 'load', timeout: 60000 })
                     } catch (reloadError) {
                         this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', 'Page reload failed, will retry from beginning', 'error')
                     }
                 } else if (errorMessage.includes('net::ERR_ABORTED')) {
-                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Page reload aborted on attempt ${attempt}, will retry...`, 'warn')
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Page reload aborted, will retry`, 'warn')
                     // For aborted requests, just wait and retry - no additional action needed
                 } else if (errorMessage.includes('Timeout') && errorMessage.includes('reload')) {
-                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Reload timeout on attempt ${attempt}, will retry with longer timeout...`, 'warn')
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Reload timeout, will retry with longer timeout`, 'warn')
                     // No extra action, just wait for retry
                 } else if (errorMessage.includes('Navigation') || errorMessage.includes('navigation')) {
-                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Navigation error on attempt ${attempt}, redirecting home...`, 'warn')
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Navigation error, redirecting home`, 'warn')
                     try {
                         await this.goHome(target)
                     } catch (homeError) {
@@ -328,7 +321,7 @@ export default class BrowserFunc {
                 
                 if (attempt < maxRetries) {
                     const waitTime = retryDelay + (attempt - 1) * 2000; // Progressive delay: 10s, 12s, 14s, 16s
-                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Retry ${attempt}/${maxRetries} in ${waitTime/1000}s: ${errorMessage}`, 'warn')
+                    this.bot.log(this.bot.isMobile, 'DASHBOARD-DATA', `Retry ${attempt}/${maxRetries} in ${waitTime/1000}s`, 'warn')
                     await this.bot.utils.wait(waitTime)
                     
                     // Try to refresh login status before retry (only on attempt 2)
@@ -494,8 +487,8 @@ export default class BrowserFunc {
 
             const scriptContent = $('script')
                 .toArray()
-                .map(el => $(el).text())
-                .find(t => t.includes('_w.rewardsQuizRenderInfo')) || ''
+                .map((el: any) => $(el).text())
+                .find((t: string) => t.includes('_w.rewardsQuizRenderInfo')) || ''
 
             if (scriptContent) {
                 const regex = /_w\.rewardsQuizRenderInfo\s*=\s*({.*?});/s
