@@ -87,8 +87,8 @@ export class Login {
       await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
 
       // Try screenshot with increased timeout and fallback options
-      await page.screenshot({ 
-        path: filePath, 
+      await page.screenshot({
+        path: filePath,
         timeout: 20000, // Increased to 20 seconds
         fullPage: false, // Avoid full page to reduce timeout risk
         animations: 'disabled' // Disable animations to speed up
@@ -98,7 +98,7 @@ export class Login {
       return true;
     } catch (screenshotError) {
       this.bot.log(this.bot.isMobile, 'SCREENSHOT', `Screenshot failed for ${context}: ${screenshotError}`, 'warn');
-      
+
       // Try a simpler screenshot without options as fallback
       try {
         await page.screenshot({ path: filePath, timeout: 5000 });
@@ -118,12 +118,12 @@ export class Login {
       this.currentTotpSecret = (totpSecret && totpSecret.trim()) || undefined
 
       // Simple retry for initial navigation
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= 5; attempt++) {
         try {
           await page.goto('https://rewards.bing.com/signin', { timeout: 10000 })
           break
         } catch (error) {
-          if (attempt === 3) throw error
+          if (attempt === 5) throw error
           await this.bot.utils.wait(1500)
         }
       }
@@ -377,7 +377,16 @@ export class Login {
   private async verifyBingContext(page: Page) {
     try {
       this.bot.log(this.bot.isMobile, 'LOGIN-BING', 'Verifying Bing auth context')
-      await page.goto('https://www.bing.com/fd/auth/signin?action=interactive&provider=windows_live_id&return_url=https%3A%2F%2Fwww.bing.com%2F')
+      // Simple retry for initial navigation
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        try {
+          await page.goto('https://www.bing.com/fd/auth/signin?action=interactive&provider=windows_live_id&return_url=https%3A%2F%2Fwww.bing.com%2F', { timeout: 10000 })
+          break
+        } catch (error) {
+          if (attempt === 5) throw error
+          await this.bot.utils.wait(1500)
+        }
+      }
       for (let i = 0; i < 5; i++) {
         const u = new URL(page.url())
         if (u.hostname === 'www.bing.com' && u.pathname === '/') {
@@ -388,14 +397,6 @@ export class Login {
         await this.bot.utils.wait(1000)
       }
     } catch (e) {
-      //screenlog
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const screenshotPath = `./reports/bing_verification_error_${timestamp}.png`;
-      await this.safeScreenshot(page, screenshotPath, 'bing_verification_error');
-      const htmlPath = `./reports/bing_verification_error_${timestamp}.html`;
-      const html = await page.content();
-      await fs.promises.writeFile(htmlPath, html);
-      //===================================
       this.bot.log(this.bot.isMobile, 'LOGIN-BING', 'Bing verification error: ' + e, 'warn')
     }
   }
