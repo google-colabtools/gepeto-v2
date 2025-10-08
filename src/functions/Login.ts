@@ -185,7 +185,7 @@ export class Login {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const screenshotPath = `./reports/email_field_error_${timestamp}.png`;
       await fs.promises.mkdir(path.dirname(screenshotPath), { recursive: true });
-      await page.screenshot({ path: screenshotPath });
+      await page.screenshot({ path: screenshotPath, timeout: 10000 }).catch(screenshotError => this.bot.log(this.bot.isMobile, 'LOGIN', 'Screenshot failed: ' + screenshotError, 'warn'));
       const htmlPath = `./reports/email_field_error_${timestamp}.html`;
       const html = await page.content();
       await fs.promises.writeFile(htmlPath, html);
@@ -219,10 +219,11 @@ export class Login {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const screenshotPath = `./reports/password_field_error_${timestamp}.png`;
       await fs.promises.mkdir(path.dirname(screenshotPath), { recursive: true });
-      await page.screenshot({ path: screenshotPath });
+      await page.screenshot({ path: screenshotPath, timeout: 10000 }).catch(screenshotError => this.bot.log(this.bot.isMobile, 'LOGIN', 'Screenshot failed: ' + screenshotError, 'warn'));
       const htmlPath = `./reports/password_field_error_${timestamp}.html`;
       const html = await page.content();
       await fs.promises.writeFile(htmlPath, html);
+      //===================================
       await this.handle2FA(page)
       return
     }
@@ -343,7 +344,7 @@ export class Login {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const screenshotPath = `./reports/bing_verification_error_${timestamp}.png`;
       await fs.promises.mkdir(path.dirname(screenshotPath), { recursive: true });
-      await page.screenshot({ path: screenshotPath });
+      await page.screenshot({ path: screenshotPath, timeout: 10000 }).catch(screenshotError => this.bot.log(this.bot.isMobile, 'LOGIN', 'Screenshot failed: ' + screenshotError, 'warn'));
       const htmlPath = `./reports/bing_verification_error_${timestamp}.html`;
       const html = await page.content();
       await fs.promises.writeFile(htmlPath, html);
