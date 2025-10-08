@@ -11,6 +11,7 @@ trap cleanup EXIT
 # Start squid proxy in background
 squid -N &
 
+echo "Current time: $(date)"
 # Aguarda o Squid responder na porta 3128
 SQUID_TIMEOUT=10
 SQUID_COUNTER=0
