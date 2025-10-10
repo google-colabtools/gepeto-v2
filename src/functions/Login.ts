@@ -256,7 +256,8 @@ export class Login {
     // Some flows require switching to password first
     const switchBtn = await page.waitForSelector('#idA_PWD_SwitchToPassword', { timeout: 1500 }).catch(() => null)
     if (switchBtn) { await switchBtn.click().catch(() => { }); await this.bot.utils.wait(1000) }
-
+    const UsePasswordButton = await page.$('span[role="button"]:has-text("Use your password")');
+    UsePasswordButton && (await UsePasswordButton.click(), this.bot.log(this.bot.isMobile, 'LOGIN', '"Use your password" button clicked successfully'));
     // Rare flow: list of methods -> choose password
     const passwordField = await page.waitForSelector(SELECTORS.passwordInput, { timeout: 4000 }).catch(() => null)
     if (!passwordField) {

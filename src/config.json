@@ -13,7 +13,7 @@
     
     "execution": {
         // Run desktop+mobile in parallel (needs more resources). If false, runs sequentially.
-        "parallel": false,
+        "parallel": true,
         // If false and there are 0 points available, the run is skipped early to save time.
         "runOnZeroPoints": false,
         // Number of account clusters (processes) to run concurrently.

@@ -46,23 +46,32 @@ class Browser {
             const useEdge = process.env.EDGE_ENABLED === 'true'
             const engineName = useEdge ? 'msedge' : 'chromium'
             this.bot.log(this.bot.isMobile, 'BROWSER', `Launching ${engineName} (headless=${headless})`) // explicit engine log
+            
+            const baseArgs = [
+                '--disable-background-networking',
+                '--test-type', // Test mode
+                '--disable-quic', // Disable QUIC connection
+                '--no-first-run', // Skip first run check
+                '--blink-settings=imagesEnabled=false', // Disable image loading
+                '--no-sandbox', // Disable sandbox mode
+                '--mute-audio', // Disable audio
+                '--disable-setuid-sandbox', // Disable setuid sandbox
+                '--ignore-certificate-errors', // Ignore all certificate errors
+                '--ignore-certificate-errors-spki-list', // Ignore certificate errors for specified SPKI list
+                '--ignore-ssl-errors', // Ignore SSL errors
+            ]
+            
+            const edgeSpecificArgs = [
+                '--disable-translate', // Disable translation popup
+                '--disable-features=TranslateUI', // Disable translation features
+                '--disable-sync', // Disable sync features
+            ]
+            
             browser = await playwright.chromium.launch({
                 ...(useEdge && { channel: 'msedge' }), // Uses Edge only if EDGE_ENABLED=true
                 headless,
                 ...(proxy.url && { proxy: { username: proxy.username, password: proxy.password, server: `${proxy.url}:${proxy.port}` } }),
-                args: [
-                    '--disable-background-networking',
-                    '--test-type', // Test mode
-                    '--disable-quic', // Disable QUIC connection
-                    '--no-first-run', // Skip first run check
-                    '--blink-settings=imagesEnabled=false', // Disable image loading
-                    '--no-sandbox', // Disable sandbox mode
-                    '--mute-audio', // Disable audio
-                    '--disable-setuid-sandbox', // Disable setuid sandbox
-                    '--ignore-certificate-errors', // Ignore all certificate errors
-                    '--ignore-certificate-errors-spki-list', // Ignore certificate errors for specified SPKI list
-                    '--ignore-ssl-errors', // Ignore SSL errors
-                ]
+                args: useEdge ? [...baseArgs, ...edgeSpecificArgs] : baseArgs
             })
         } catch (e: unknown) {
             const msg = (e instanceof Error ? e.message : String(e))
