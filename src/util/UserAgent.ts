@@ -118,7 +118,6 @@ export async function updateFingerprintUserAgent(fingerprint: BrowserFingerprint
         const userAgentData = await getUserAgent(isMobile)
         const componentData = await getAppComponents(isMobile)
 
-        //@ts-expect-error Errors due it not exactly matching
         fingerprint.fingerprint.navigator.userAgentData = userAgentData.userAgentMetadata
         fingerprint.fingerprint.navigator.userAgent = userAgentData.userAgent
         fingerprint.fingerprint.navigator.appVersion = userAgentData.userAgent.replace(`${fingerprint.fingerprint.navigator.appCodeName}/`, '')
