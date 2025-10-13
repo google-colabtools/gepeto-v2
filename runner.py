@@ -64,27 +64,6 @@ def run_bots():
     SPACE_REPO_ID = space_repo_id_env
     HF_TOKEN = hf_token_env
     
-    # Verificar IP duplicado apenas para DEFAULT_CONFIG_US
-    if CONFIG_MODE == "DISABLED_DEFAULT_CONFIG_US":
-        # Verificar se já existe uma tarefa com o nome do IP atual
-        
-        ip_task_exists = rwds_functions.verificar_tarefa_concluida(current_ip, "6cjh8V9GcVr6r4x7")
-
-        if ip_task_exists:
-            # Se a tarefa não existe (verificar_tarefa_concluida retorna True quando não existe), criar nova tarefa
-            print(f"📝 Criando tarefa para IP: {current_ip}")
-            rwds_functions.criar_tarefa(current_ip, "6cjh8V9GcVr6r4x7")
-            ip_task_created = True  # Marcar que a tarefa foi criada
-        else:
-            # Se a tarefa existe (verificar_tarefa_concluida retorna False quando existe), reiniciar space
-            print(f"🔄 Tarefa para IP {current_ip} já existe. Reiniciando Space...")
-            rwds_functions.send_discord_log_message(BOT_ACCOUNT, f"IP duplicado detectado ({current_ip}). Reiniciando Space...", DISCORD_WEBHOOK_URL_LOG)
-            rwds_functions.restart_space(HF_TOKEN, SPACE_REPO_ID, factory_reboot=True)
-            return  # Encerra a execução após reiniciar
-    else:
-        #print(f"ℹ️ Verificação de IP duplicado desabilitada para CONFIG_MODE: {CONFIG_MODE}")
-        ip_task_created = False  # Para outros modos, não criar tarefa do IP
-
 
     rwds_functions.send_discord_log_message(BOT_ACCOUNT, "Iniciando execução...", DISCORD_WEBHOOK_URL_LOG)
     if CONFIG_MODE == "GEN_COOKIE_CONFIG":
@@ -184,11 +163,16 @@ def run_bots():
     else:
         print("⚠️ Nenhum bot foi selecionado.")
 
-    rwds_functions.send_discord_log_message(BOT_ACCOUNT, "Execução finalizada, desligando Space.", DISCORD_WEBHOOK_URL_LOG)
-    time.sleep(5)
-    rwds_functions.stop_space(HF_TOKEN, SPACE_REPO_ID)
-    print("🏁 Processo concluído.")
-    time.sleep(180)
+    if SPACE_REPO_ID:
+        rwds_functions.send_discord_log_message(BOT_ACCOUNT, "Execução finalizada, desligando Space.", DISCORD_WEBHOOK_URL_LOG)
+        time.sleep(5)
+        rwds_functions.stop_space(HF_TOKEN, SPACE_REPO_ID)
+        print("🏁 Processo concluído.")
+        time.sleep(180)
+    else:
+        rwds_functions.send_discord_log_message(BOT_ACCOUNT, "Execução finalizada, encerrando GITHUB Action.", DISCORD_WEBHOOK_URL_LOG)
+        print("🏁 Processo concluído.")
+
 
 if __name__ == '__main__':
     run_bots()
