@@ -30,6 +30,7 @@ export default class BrowserUtil {
             { selector: '#bnp_close_link', label: 'Bing Cookie Close' },
             { selector: '#reward_pivot_earn', label: 'Rewards Pivot Earn' },
             { selector: '#streak-protection-popup-close-cross', label: 'Streak Protection Popup Close' },
+            { selector: 'a#reward_pivot_earn[role="button"]', label: 'OK Got It Button' },
             { selector: '//div[@id="cookieConsentContainer"]//button[contains(text(), "Accept")]', label: 'Legacy Cookie Accept', isXPath: true }
         ]
         for (let round = 0; round < attempts; round++) {
