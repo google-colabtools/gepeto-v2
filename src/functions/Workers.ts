@@ -18,6 +18,7 @@ export class Workers {
 
     // Daily Set
     async doDailySet(page: Page, data: DashboardData) {
+        await this.bot.browser.utils.tryDismissAllMessages(page)
         const todayData = data.dailySetPromotions[this.bot.utils.getFormattedDate()]
 
         const today = this.bot.utils.getFormattedDate()
@@ -32,7 +33,6 @@ export class Workers {
             this.bot.log(this.bot.isMobile, 'DAILY-SET', 'All Daily Set" items have already been completed')
             return
         }
-
         // Solve Activities
         this.bot.log(this.bot.isMobile, 'DAILY-SET', 'Started solving "Daily Set" items')
 
@@ -66,7 +66,7 @@ export class Workers {
 
     // Punch Card
     async doPunchCard(page: Page, data: DashboardData) {
-
+        await this.bot.browser.utils.tryDismissAllMessages(page)
         const punchCardsUncompleted = data.punchCards?.filter(x => x.parentPromotion && !x.parentPromotion.complete) ?? [] // Only return uncompleted punch cards
 
         if (!punchCardsUncompleted.length) {
@@ -117,7 +117,7 @@ export class Workers {
     // More Promotions
     async doMorePromotions(page: Page, data: DashboardData) {
         const morePromotions = data.morePromotions
-
+        await this.bot.browser.utils.tryDismissAllMessages(page)
         // Check if there is a promotional item
         if (data.promotionalItem) { // Convert and add the promotional item to the array
             morePromotions.push(data.promotionalItem as unknown as MorePromotion)
