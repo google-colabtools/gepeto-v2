@@ -280,8 +280,19 @@ def clean_account_proxys(account_file):
         with open(account_file, 'r', encoding='utf-8') as f:
             dados = json.load(f)
         
+        # Detectar formato: wrapper ou array direto
+        if isinstance(dados, dict) and 'accounts' in dados:
+            # Formato antigo: {'accounts': [...]}
+            accounts_list = dados['accounts']
+        elif isinstance(dados, list):
+            # Formato novo: [...]
+            accounts_list = dados
+        else:
+            print(f"Formato inválido no arquivo {account_file}")
+            return
+        
         # Modifica o campo 'proxy' para cada item na lista
-        for item in dados:
+        for item in accounts_list:
             if 'proxy' in item:
                 item['proxy']['url'] = "127.0.0.1"
                 item['proxy']['port'] = 3128
@@ -292,7 +303,7 @@ def clean_account_proxys(account_file):
         with open(account_file, 'w', encoding='utf-8') as f:
             json.dump(dados, f, indent=4)
 
-        print(f"['{account_file}'] Proxy local definido com sucesso.")
+        print(f"['{account_file}'] Proxy local ativado para {account_file} com sucesso.")
 
     except Exception as e:
         print(f"Ocorreu um erro: {e}")
