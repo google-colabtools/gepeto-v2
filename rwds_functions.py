@@ -15,6 +15,16 @@ from urllib.parse import urlparse
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# SISTEMA DE TIMEOUT DE INATIVIDADE
+# Implementado mecanismo que encerra automaticamente bots que ficarem
+# mais de 30 minutos sem produzir saída (sem ações).
+# - Monitora timestamp da última atividade de cada bot
+# - Captura e armazena a última mensagem de atividade
+# - Verifica timeout tanto na saída quanto em verificação ativa
+# - Não reinicia bots encerrados por timeout
+# - Envia notificação Discord informando o encerramento + última atividade
+# - Estado: 'inactive_timeout' para bots encerrados por inatividade
+
 # Lock global para sincronização de acesso ao dicionário processes
 processes_lock = threading.Lock()
 
@@ -463,6 +473,55 @@ def send_discord_redeem_alert(bot_letter, message, discord_webhook_url_br, disco
             print(f"ℹ️ Pontuação atual ({points}) não atingiu o limite para envio de alerta ({6710 if is_multi_br else 6500} pontos)")
     except Exception as e:
         print(f"❌ Erro ao enviar alerta para o Discord: {str(e)}")
+
+def send_discord_timeout_alert(bot_letter, discord_webhook_url_br, discord_webhook_url_us, last_message="Nenhuma atividade recente"):
+    """Envia uma mensagem para o webhook do Discord quando um bot é encerrado por timeout de inatividade"""
+    try:
+        # Obter informações da conta
+        email = "Unknown"
+        session_profile = "Unknown"
+        try:
+            accounts_file = os.path.join(BASEDIR, f"{BOT_BASE_DIR_NAME}_{bot_letter}", "src", "accounts.json")
+            config_file = os.path.join(BASEDIR, f"{BOT_BASE_DIR_NAME}_{bot_letter}", "src", "config.json")
+            
+            # Obter email
+            if os.path.exists(accounts_file):
+                accounts_data = load_json_with_comments(accounts_file)
+                if accounts_data:
+                    email = extract_email_from_accounts(accounts_data)
+            
+            # Obter perfil da sessão
+            if os.path.exists(config_file):
+                config_data = load_json_with_comments(config_file)
+                if config_data:
+                    session_path = config_data.get('sessionPath', '')
+                    if session_path and 'sessions/_' in session_path:
+                        session_profile = session_path.split('sessions/_')[1]
+        except Exception as e:
+            print(f"❌ Erro ao obter informações da conta: {str(e)}")
+        
+        # Determinar webhook baseado no perfil
+        is_multi_br = session_profile.startswith('multi-BR')
+        DISCORD_WEBHOOK_URL = discord_webhook_url_br if is_multi_br else discord_webhook_url_us
+        
+        # Formatar mensagem para Discord com última atividade
+        current_timestamp = time.strftime("%d/%m/%Y %H:%M:%S")
+        flag_emoji = ":flag_br:" if is_multi_br else ":flag_us:"
+        discord_message = f"⏰ {flag_emoji} {current_timestamp}: [{session_profile}-{bot_letter}] - {email} - ENCERRADO por inatividade (30+ min sem ações)\n📝 Última atividade: {last_message}"
+        
+        # Enviar mensagem
+        data = {"content": discord_message}
+        response = post_discord_with_custom_dns(DISCORD_WEBHOOK_URL, data)
+        if response.status_code == 204:
+            print(f"✅ Notificação de timeout enviada para Discord: {email} [{session_profile}-{bot_letter}]")
+            return True
+        else:
+            print(f"❌ Erro ao enviar notificação de timeout: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Erro ao enviar notificação de timeout para Discord: {str(e)}")
+        return False
 
 def send_discord_suspension_alert(bot_letter, discord_webhook_url_br, discord_webhook_url_us):
     """Envia uma mensagem para o webhook do Discord quando uma conta é suspensa"""
@@ -1156,7 +1215,16 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
     max_restarts = 20  # Número máximo de tentativas de reinicialização
     
     # Controle de estado dos bots (novo)
-    bot_states = {bot: 'running' for bot in bots_to_run}  # 'running', 'completed', 'failed', 'banned'
+    bot_states = {bot: 'running' for bot in bots_to_run}  # 'running', 'completed', 'failed', 'banned', 'inactive_timeout'
+    
+    # Controle de tempo de última atividade para cada bot
+    bot_last_activity = {bot: time.time() for bot in bots_to_run}
+    
+    # Controle da última mensagem de atividade para cada bot
+    bot_last_message = {bot: "Bot iniciado" for bot in bots_to_run}
+    
+    # Timeout de inatividade (30 minutos = 1800 segundos)
+    INACTIVITY_TIMEOUT = 30 * 60  # 30 minutos
     
     # Padrões de erro críticos que causam o fechamento do bot
     critical_error_patterns = [
@@ -1170,6 +1238,7 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
         "Error running desktop bot",
         "Too Many Requests",
         "Terminating bot due to",
+        "Email field not present",
         #"[LOGIN] Email field not found",
         "Error: SyntaxError"
     ]
@@ -1251,6 +1320,18 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
                     # Ler a saída linha por linha
                     for line in iter(process.stdout.readline, ''):
                         if line.strip():  # Ignorar linhas vazias
+                            # Atualizar timestamp da última atividade
+                            bot_last_activity[bot_letter] = time.time()
+                            
+                            # Capturar e limpar a última mensagem para armazenar
+                            cleaned_line = line.strip()
+                            # Remover códigos de cores ANSI e caracteres especiais
+                            cleaned_line = re.sub(r'\x1b\[[0-9;]*m', '', cleaned_line)
+                            # Limitar o tamanho da mensagem para evitar overflow no Discord
+                            if len(cleaned_line) > 100:
+                                cleaned_line = cleaned_line[:97] + "..."
+                            bot_last_message[bot_letter] = cleaned_line
+                            
                             # Extrair PIDs da saída
                             if "[PID:" in line or "PID:" in line or "pid:" in line:
                                 try:
@@ -1352,6 +1433,32 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
 
                         else:
                             no_output_counter += 1
+                            
+                            # Verificar timeout de inatividade quando não há saída
+                            current_time = time.time()
+                            time_since_last_activity = current_time - bot_last_activity[bot_letter]
+                            
+                            if time_since_last_activity > INACTIVITY_TIMEOUT:
+                                print_colored('Sistema', f"Bot {bot_letter} ficou inativo por {int(time_since_last_activity/60)} minutos. Encerrando por timeout de inatividade.", is_warning=True)
+                                
+                                # Marcar como encerrado por inatividade
+                                bot_states[bot_letter] = 'inactive_timeout'
+                                
+                                # Enviar mensagem para Discord sobre o encerramento por inatividade
+                                last_msg = bot_last_message.get(bot_letter, "Nenhuma atividade recente")
+                                threading.Thread(target=send_discord_timeout_alert, args=(bot_letter, discord_webhook_url_br, discord_webhook_url_us, last_msg)).start()
+                                
+                                # Encerrar o processo
+                                try:
+                                    process.terminate()
+                                    time.sleep(5)
+                                    if process.poll() is None:
+                                        process.kill()
+                                    print_colored('Sistema', f"Bot {bot_letter} encerrado por timeout de inatividade.", is_warning=True)
+                                except Exception as e:
+                                    print_colored('Sistema', f"Erro ao encerrar Bot {bot_letter}: {str(e)}", is_error=True)
+                                
+                                return  # Encerrar o monitoramento deste bot
                             
                         # Verificar se o processo está sem saída por muito tempo
                         if no_output_counter > 100:
@@ -1483,7 +1590,50 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
         print_colored('Sistema', f"Monitorando {len(bots_to_run)} bot(s): {', '.join(bots_to_run)}")
         last_status_check = time.time()
         
+        # Função para verificar timeouts de inatividade
+        def check_inactivity_timeouts():
+            current_time = time.time()
+            bots_to_terminate = []
+            
+            with processes_lock:
+                for bot_letter, process in list(processes.items()):
+                    if process.poll() is None:  # Processo ainda ativo
+                        time_since_last_activity = current_time - bot_last_activity.get(bot_letter, current_time)
+                        
+                        if time_since_last_activity > INACTIVITY_TIMEOUT:
+                            bots_to_terminate.append((bot_letter, process, time_since_last_activity))
+            
+            # Encerrar bots que excederam o timeout
+            for bot_letter, process, inactive_time in bots_to_terminate:
+                print_colored('Sistema', f"Bot {bot_letter} detectado como inativo por {int(inactive_time/60)} minutos. Encerrando...", is_warning=True)
+                
+                # Marcar como encerrado por inatividade
+                bot_states[bot_letter] = 'inactive_timeout'
+                
+                # Enviar notificação para Discord
+                last_msg = bot_last_message.get(bot_letter, "Nenhuma atividade recente")
+                threading.Thread(target=send_discord_timeout_alert, args=(bot_letter, discord_webhook_url_br, discord_webhook_url_us, last_msg)).start()
+                
+                # Encerrar o processo
+                try:
+                    process.terminate()
+                    time.sleep(3)
+                    if process.poll() is None:
+                        process.kill()
+                    print_colored('Sistema', f"Bot {bot_letter} encerrado por timeout de inatividade (verificação ativa).", is_warning=True)
+                    
+                    # Remover do dicionário de processos
+                    with processes_lock:
+                        if bot_letter in processes:
+                            del processes[bot_letter]
+                            
+                except Exception as e:
+                    print_colored('Sistema', f"Erro ao encerrar Bot {bot_letter}: {str(e)}", is_error=True)
+        
         while True:
+            # Verificar timeouts de inatividade a cada ciclo
+            check_inactivity_timeouts()
+            
             # Verificar se ainda há processos ativos
             with processes_lock:
                 active_processes = {k: v for k, v in processes.items() if v.poll() is None}
@@ -1499,6 +1649,7 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
                     completed = [bot for bot in bots_to_run if bot_states[bot] == 'completed']
                     failed = [bot for bot in bots_to_run if bot_states[bot] == 'failed'] 
                     banned = [bot for bot in bots_to_run if bot_states[bot] == 'banned']
+                    timeout = [bot for bot in bots_to_run if bot_states[bot] == 'inactive_timeout']
                     still_running = [bot for bot in bots_to_run if bot_states[bot] == 'running']
                     
                     if completed:
@@ -1507,6 +1658,8 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
                         print_colored('Sistema', f"Bots que falharam: {', '.join(failed)}")
                     if banned:
                         print_colored('Sistema', f"Bots banidos: {', '.join(banned)}")
+                    if timeout:
+                        print_colored('Sistema', f"Bots encerrados por timeout: {', '.join(timeout)}")
                     if still_running:
                         print_colored('Sistema', f"Bots ainda aguardando: {', '.join(still_running)}")
                     else:
@@ -1519,17 +1672,18 @@ def start_bots(discord_webhook_url_br, discord_webhook_url_us, *bots_to_run):
                 completed_bots = [bot for bot in bots_to_run if bot_states[bot] == 'completed']
                 failed_bots = [bot for bot in bots_to_run if bot_states[bot] == 'failed']
                 banned_bots_list = [bot for bot in bots_to_run if bot_states[bot] == 'banned']
+                timeout_bots = [bot for bot in bots_to_run if bot_states[bot] == 'inactive_timeout']
                 still_running = [bot for bot in bots_to_run if bot_states[bot] == 'running']
                 
-                # Se todos os bots terminaram (seja com sucesso, falha ou banimento), encerrar
+                # Se todos os bots terminaram (seja com sucesso, falha, banimento ou timeout), encerrar
                 if not still_running:
-                    print_colored('Sistema', f"Execução finalizada - Concluídos: {len(completed_bots)}, Falharam: {len(failed_bots)}, Banidos: {len(banned_bots_list)}", is_success=True)
+                    print_colored('Sistema', f"Execução finalizada - Concluídos: {len(completed_bots)}, Falharam: {len(failed_bots)}, Banidos: {len(banned_bots_list)}, Timeout: {len(timeout_bots)}", is_success=True)
                     break
                 
                 # Se há bots ainda esperados mas que podem ser reiniciados, aguardar um pouco mais
-                can_restart = [bot for bot in still_running if bot not in banned_bots and restart_counts[bot] < max_restarts]
+                can_restart = [bot for bot in still_running if bot not in banned_bots and restart_counts[bot] < max_restarts and bot_states[bot] != 'inactive_timeout']
                 if not can_restart:
-                    print_colored('Sistema', "Todos os bots terminaram execução, falharam ou estão banidos. Encerrando monitoramento.", is_success=True)
+                    print_colored('Sistema', "Todos os bots terminaram execução, falharam, estão banidos ou foram encerrados por timeout. Encerrando monitoramento.", is_success=True)
                     break
             
             time.sleep(1)
