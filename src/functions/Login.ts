@@ -111,6 +111,53 @@ export class Login {
     }
   }
 
+  // --------------- Button Prompt Handling ---------------
+  private async handleMultipleButtonPrompts(page: Page) {
+    const buttonConfigs = [
+      {
+        selector: 'button[data-testid="secondaryButton"]',
+        name: 'Skip for now',
+        textCheck: (text: string) => /skip for now/i.test(text),
+        requiresTextCheck: false
+      },
+      {
+        selector: 'button[data-testid="primaryButton"]',
+        name: 'Next',
+        textCheck: (text: string) => text.toLowerCase().includes('next'),
+        requiresTextCheck: true
+      }
+    ]
+
+    for (const config of buttonConfigs) {
+      let buttonFound = false
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const button = await page.waitForSelector(config.selector, { timeout: 3000 }).catch(() => null)
+        if (button) {
+          let shouldClick = true
+          
+          if (config.requiresTextCheck) {
+            const buttonText = await button.textContent().catch(() => '')
+            shouldClick = buttonText && config.textCheck(buttonText)
+          }
+          
+          if (shouldClick) {
+            buttonFound = true
+            await button.click()
+            this.bot.log(this.bot.isMobile, 'LOGIN', `"${config.name}" button found and clicked (attempt ${attempt}).`)
+            await this.bot.utils.wait(5000) // Espera antes de tentar novamente
+          } else {
+            break // Se não passou na verificação de texto, para o loop
+          }
+        } else if (!buttonFound) {
+          break
+        } else {
+          this.bot.log(this.bot.isMobile, 'LOGIN', `No more '${config.name}' button found. Stopping.`)
+          break
+        }
+      }
+    }
+  }
+
   // --------------- Public API ---------------
   async login(page: Page, email: string, password: string, totpSecret?: string) {
     try {
@@ -131,22 +178,10 @@ export class Login {
       await page.waitForLoadState('domcontentloaded').catch(() => { })
       await this.bot.browser.utils.reloadBadPage(page)
       await this.checkAccountLocked(page)
-      // Handle possible multiple "Skip for now" passkey prompts
-      let skipButtonFound = false;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        const skipButton = await page.waitForSelector('button[data-testid="secondaryButton"]', { timeout: 3000 }).catch(() => null);
-        if (skipButton) {
-          skipButtonFound = true;
-          await skipButton.click();
-          this.bot.log(this.bot.isMobile, 'LOGIN', `"Skip for now" button found and clicked (attempt ${attempt}).`);
-          await this.bot.utils.wait(5000); // Espera antes de tentar novamente
-        } else if (!skipButtonFound) {
-          break;
-        } else {
-          this.bot.log(this.bot.isMobile, 'LOGIN', `"No more 'Skip for now' button found. Stopping.`);
-          break;
-        }
-      }
+      // Handle possible multiple button prompts (Skip for now & Next) - Run twice to catch sequential prompts
+      await this.handleMultipleButtonPrompts(page)
+      await this.handleMultipleButtonPrompts(page)
+      
       const already = await page.waitForSelector('html[data-role-name="RewardsPortal"]', { timeout: 8000 }).then(() => true).catch(() => false)
       if (!already) {
         await this.performLoginFlow(page, email, password)
