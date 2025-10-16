@@ -339,7 +339,7 @@ def set_socks_proxy(account_file):
         for item in accounts_list:
             if 'proxy' in item:
                 item['proxy']['url'] = "127.0.0.1"
-                item['proxy']['port'] = 3129
+                item['proxy']['port'] = 8099
                 item['proxy']['username'] = ""
                 item['proxy']['password'] = ""
         

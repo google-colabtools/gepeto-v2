@@ -64,12 +64,12 @@ check_socks_proxy() {
         
         echo "SOCKS Server: $SOCKS_SERVER"
         
-        sthp -p 3129 -s $SOCKS_SERVER -u $SOCKS_USER -P $SOCKS_PASS &> /dev/null &
+        sthp -p 8099 -s $SOCKS_SERVER -u $SOCKS_USER -P $SOCKS_PASS &> /dev/null &
         sleep 3
         
-        # Test SOCKS-to-HTTP proxy on port 3129
-        echo "Testing SOCKS-to-HTTP proxy on port 3129"
-        SOCKS_RESPONSE=$(curl -s --proxy http://127.0.0.1:3129 https://api.country.is/)
+        # Test SOCKS-to-HTTP proxy on port 8099
+        echo "Testing SOCKS-to-HTTP proxy on port 8099"
+        SOCKS_RESPONSE=$(curl -s --proxy http://127.0.0.1:8099 https://api.country.is/)
         if [ -z "$SOCKS_RESPONSE" ]; then
             echo "SOCKS Proxy IP: (not detected)"
             echo "SOCKS Proxy Country: (not detected)"

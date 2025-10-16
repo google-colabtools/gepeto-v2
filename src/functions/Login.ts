@@ -137,7 +137,7 @@ export class Login {
           
           if (config.requiresTextCheck) {
             const buttonText = await button.textContent().catch(() => '')
-            shouldClick = buttonText && config.textCheck(buttonText)
+            shouldClick = !!(buttonText && config.textCheck(buttonText))
           }
           
           if (shouldClick) {
