@@ -115,18 +115,20 @@ export class Login {
   private async handleMultipleButtonPrompts(page: Page) {
     const buttonConfigs = [
       {
-        selector: 'button[data-testid="secondaryButton"]',
-        name: 'Skip for now',
-        textCheck: (text: string) => /skip for now/i.test(text),
-        requiresTextCheck: false
+      selector: 'button[data-testid="secondaryButton"]',
+      name: 'Skip for now',
+      textCheck: (text: string) => /skip for now/i.test(text),
+      requiresTextCheck: false
       },
       {
-        selector: 'button[data-testid="primaryButton"]',
-        name: 'Next',
-        textCheck: (text: string) => text.toLowerCase().includes('next'),
-        requiresTextCheck: true
+      selector: 'button[data-testid="primaryButton"]',
+      name: 'Next',
+      textCheck: (text: string) => text.toLowerCase().includes('next'),
+      requiresTextCheck: true
       }
     ]
+
+    if (await page.waitForSelector(SELECTORS.emailInput, { timeout: 5000 }).catch(() => null)) return
 
     for (const config of buttonConfigs) {
       let buttonFound = false
