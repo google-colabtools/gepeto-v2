@@ -86,17 +86,10 @@ export default class BrowserFunc {
                 await this.bot.utils.wait(3000)
                 await this.bot.browser.utils.tryDismissAllMessages(page)
 
-                // Check if account is suspended (multiple heuristics)
-                const suspendedByHeader = await page.waitForSelector('#suspendedAccountHeader', { state: 'visible', timeout: 1500 }).then(() => true).catch(() => false)
-                let suspendedByText = false
-                if (!suspendedByHeader) {
-                    try {
-                        const text = (await page.textContent('body')) || ''
-                        suspendedByText = /account has been suspended|suspended due to unusual activity/i.test(text)
-                    } catch { /* ignore */ }
-                }
-                if (suspendedByHeader || suspendedByText) {
-                    this.bot.log(this.bot.isMobile, 'GO-HOME', 'This account appears suspended!', 'error')
+                // Check if account is suspended
+                const isSuspended = await page.waitForSelector('#suspendedAccountHeader', { state: 'visible', timeout: 10000 }).then(() => true).catch(() => false)
+                if (isSuspended) {
+                    this.bot.log(this.bot.isMobile, 'GO-HOME', 'This account is suspended!', 'error')
                     throw new Error('Account has been suspended!')
                 }
 

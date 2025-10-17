@@ -265,6 +265,7 @@ export class Login {
 
   // --------------- Input Steps ---------------
   private async inputEmail(page: Page, email: string) {
+    await this.handleMultipleButtonPrompts(page)
     const field = await page.waitForSelector(SELECTORS.emailInput, { timeout: 5000 }).catch(() => null)
     if (!field) {
       this.bot.log(this.bot.isMobile, 'LOGIN', 'Email field not present', 'warn');
@@ -290,6 +291,7 @@ export class Login {
   }
 
   private async inputPasswordOr2FA(page: Page, password: string) {
+    await this.handleMultipleButtonPrompts(page)
     // Some flows require switching to password first
     const switchBtn = await page.waitForSelector('#idA_PWD_SwitchToPassword', { timeout: 1500 }).catch(() => null)
     if (switchBtn) { await switchBtn.click().catch(() => { }); await this.bot.utils.wait(1000) }
