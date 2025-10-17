@@ -90,6 +90,10 @@ export default class BrowserFunc {
                 const isSuspended = await page.waitForSelector('#suspendedAccountHeader', { state: 'visible', timeout: 10000 }).then(() => true).catch(() => false)
                 if (isSuspended) {
                     this.bot.log(this.bot.isMobile, 'GO-HOME', 'This account is suspended!', 'error')
+                    // Save screenshot on suspension
+                    const screenshotPath = `${this.bot.config.sessionPath}/suspended_${this.bot.isMobile ? 'mobile' : 'desktop'}_${Date.now()}.png`
+                    await page.screenshot({ path: screenshotPath, fullPage: true })
+                    this.bot.log(this.bot.isMobile, 'GO-HOME', `Screenshot saved to ${screenshotPath}`)
                     throw new Error('Account has been suspended!')
                 }
 
