@@ -31,6 +31,7 @@ export default class BrowserUtil {
             { selector: '#reward_pivot_earn', label: 'Rewards Pivot Earn' },
             { selector: '#streak-protection-popup-close-cross', label: 'Streak Protection Popup Close' },
             { selector: 'a#reward_pivot_earn[role="button"]', label: 'OK Got It Button' },
+            { selector: 'a.dashboardPopUpPopUpCloseButton[data-bi-id="rx-nav-popup-close"]', label: 'Dashboard Popup Close Button' },
             { selector: '//div[@id="cookieConsentContainer"]//button[contains(text(), "Accept")]', label: 'Legacy Cookie Accept', isXPath: true }
         ]
         for (let round = 0; round < attempts; round++) {

@@ -283,6 +283,7 @@ is_shutdown_requested = False  # Nova variável global para controlar o estado d
 banned_bots = set()  # Conjunto para evitar duplicatas
 
 last_alerts = {}
+last_banned_alerts = {}  # Novo: controle de duplicação para alertas de contas banidas
 
 def clean_account_proxys(account_file):
     try:
@@ -525,13 +526,9 @@ def send_discord_timeout_alert(bot_letter, discord_webhook_url_br, discord_webho
 
 def send_discord_suspension_alert(bot_letter, discord_webhook_url_br, discord_webhook_url_us):
     """Envia uma mensagem para o webhook do Discord quando uma conta é suspensa"""
-    global banned_bots
+    global banned_bots, last_banned_alerts
     
     try:
-        # Adicionar o bot à lista de banidos
-        banned_bots.add(bot_letter)
-        print(f"🚫 Bot {bot_letter} adicionado à lista de contas banidas. Não será reiniciado automaticamente.")
-        
         # Tentar obter o email da conta do arquivo accounts.json
         email = "Unknown"
         session_profile = "Unknown"
@@ -554,6 +551,21 @@ def send_discord_suspension_alert(bot_letter, discord_webhook_url_br, discord_we
                         session_profile = session_path.split('sessions/_')[1]
         except Exception as e:
             print(f"❌ Erro ao obter informações da conta: {str(e)}")
+        
+        # Criar chave única para evitar duplicação
+        alert_key = f"{session_profile}-{bot_letter}-{email}"
+        
+        # Verificar se já foi enviado um alerta para esta combinação
+        if alert_key in last_banned_alerts:
+            print(f"🔁 Alerta de banimento duplicado ignorado para {alert_key}")
+            return
+        
+        # Registrar que o alerta foi enviado
+        last_banned_alerts[alert_key] = True
+        
+        # Adicionar o bot à lista de banidos
+        banned_bots.add(bot_letter)
+        print(f"🚫 Bot {bot_letter} adicionado à lista de contas banidas. Não será reiniciado automaticamente.")
         
         # Formatar a mensagem com o email e perfil
         current_time = time.strftime("%d/%m/%Y")
@@ -1705,7 +1717,7 @@ def kill_all_bots():
     Encerra todos os bots e seus processos filhos de forma mais robusta,
     garantindo que não haja processos persistentes ou logs de execuções anteriores.
     """
-    global bot_pids, processes, restart_counts, is_shutdown_requested, banned_bots
+    global bot_pids, processes, restart_counts, is_shutdown_requested, banned_bots, last_banned_alerts
     
     # Sinaliza que um desligamento foi solicitado
     is_shutdown_requested = True
@@ -1724,7 +1736,7 @@ def kill_all_bots():
             except Exception as e:
                 print(f"⚠️ Erro ao encerrar Bot {bot_letter} (PID {pid}): {str(e)}")
     
-    # Limpar a lista de PIDs, contadores de reinicialização e bots banidos
+    # Limpar a lista de PIDs, contadores de reinicialização, bots banidos e alertas de banimento
     bot_pids = {key: [] for key in bot_pids}
     processes = {}  # Limpar o dicionário de processos
     restart_counts = {
@@ -1735,7 +1747,8 @@ def kill_all_bots():
         'E': 0
     }  # Resetar os contadores de reinicialização
     banned_bots.clear()  # Limpar a lista de bots banidos
-    print("🔄 Lista de contas banidas foi limpa. Todos os bots podem ser reiniciados novamente.")
+    last_banned_alerts.clear()  # Limpar o histórico de alertas de banimento
+    print("🔄 Lista de contas banidas e histórico de alertas foram limpos. Todos os bots podem ser reiniciados novamente.")
     
     # Garantir que não haja processos zumbis ou órfãos relacionados aos bots
     # Usar SIGKILL (-9) para garantir encerramento forçado

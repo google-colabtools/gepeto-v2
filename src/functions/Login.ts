@@ -134,12 +134,12 @@ export class Login {
         const button = await page.waitForSelector(config.selector, { timeout: 3000 }).catch(() => null)
         if (button) {
           let shouldClick = true
-          
+
           if (config.requiresTextCheck) {
             const buttonText = await button.textContent().catch(() => '')
             shouldClick = !!(buttonText && config.textCheck(buttonText))
           }
-          
+
           if (shouldClick) {
             buttonFound = true
             await button.click()
@@ -181,7 +181,7 @@ export class Login {
       // Handle possible multiple button prompts (Skip for now & Next) - Run twice to catch sequential prompts
       await this.handleMultipleButtonPrompts(page)
       await this.handleMultipleButtonPrompts(page)
-      
+
       const already = await page.waitForSelector('html[data-role-name="RewardsPortal"]', { timeout: 8000 }).then(() => true).catch(() => false)
       if (!already) {
         await this.performLoginFlow(page, email, password)
@@ -407,6 +407,8 @@ export class Login {
     }
     const portal = await page.waitForSelector('html[data-role-name="RewardsPortal"]', { timeout: 8000 }).catch(() => null)
     if (!portal) throw this.bot.log(this.bot.isMobile, 'LOGIN', 'Portal root element missing after navigation', 'error')
+    await this.bot.utils.wait(1000)
+    await this.bot.browser.utils.tryDismissAllMessages(page)
     this.bot.log(this.bot.isMobile, 'LOGIN', 'Reached rewards portal')
   }
 
