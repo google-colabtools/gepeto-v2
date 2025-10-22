@@ -32,6 +32,7 @@ export default class BrowserUtil {
             { selector: '#streak-protection-popup-close-cross', label: 'Streak Protection Popup Close' },
             { selector: 'a#reward_pivot_earn[role="button"]', label: 'OK Got It Button' },
             { selector: 'a.dashboardPopUpPopUpCloseButton[data-bi-id="rx-nav-popup-close"]', label: 'Dashboard Popup Close Button' },
+            { selector: 'a[ng-click="$ctrl.hidePopUpAndApplyFunction($event)"][data-bi-id="rx-nav-popup"][id="reward_pivot_earn"].dashboardPopUpPopUpSelectButton', label: 'OK Got It Popup Button' },
             { selector: '//div[@id="cookieConsentContainer"]//button[contains(text(), "Accept")]', label: 'Legacy Cookie Accept', isXPath: true }
         ]
         for (let round = 0; round < attempts; round++) {
