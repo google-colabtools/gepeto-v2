@@ -169,7 +169,7 @@ export class Login {
       // Simple retry for initial navigation
       for (let attempt = 1; attempt <= 5; attempt++) {
         try {
-          await page.goto('https://rewards.bing.com/signin', { timeout: 10000 })
+          await page.goto('https://www.bing.com/rewards/dashboard', { timeout: 10000 })
           break
         } catch (error) {
           if (attempt === 5) throw error
