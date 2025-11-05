@@ -115,16 +115,16 @@ export class Login {
   private async handleMultipleButtonPrompts(page: Page) {
     const buttonConfigs = [
       {
-      selector: 'button[data-testid="secondaryButton"]',
-      name: 'Skip for now',
-      textCheck: (text: string) => /skip for now/i.test(text),
-      requiresTextCheck: false
+        selector: 'button[data-testid="secondaryButton"]',
+        name: 'Skip for now',
+        textCheck: (text: string) => /skip for now/i.test(text),
+        requiresTextCheck: false
       },
       {
-      selector: 'button[data-testid="primaryButton"]',
-      name: 'Next',
-      textCheck: (text: string) => text.toLowerCase().includes('next'),
-      requiresTextCheck: true
+        selector: 'button[data-testid="primaryButton"]',
+        name: 'Next',
+        textCheck: (text: string) => text.toLowerCase().includes('next'),
+        requiresTextCheck: true
       }
     ]
 
@@ -144,6 +144,14 @@ export class Login {
 
           if (shouldClick) {
             buttonFound = true
+            //screenlog
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const screenshotPath = `./reports/next_button_${timestamp}.png`;
+            await this.safeScreenshot(page, screenshotPath, 'next_button');
+            const htmlPath = `./reports/next_button_${timestamp}.html`;
+            const html = await page.content();
+            await fs.promises.writeFile(htmlPath, html);
+            //===================================
             await button.click()
             this.bot.log(this.bot.isMobile, 'LOGIN', `"${config.name}" button found and clicked (attempt ${attempt}).`)
             await this.bot.utils.wait(5000) // Espera antes de tentar novamente
