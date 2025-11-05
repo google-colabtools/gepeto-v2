@@ -140,6 +140,15 @@ export class Login {
           if (config.requiresTextCheck) {
             const buttonText = await button.textContent().catch(() => '')
             shouldClick = !!(buttonText && config.textCheck(buttonText))
+            
+            // Para botão "Next", verificar se campo de senha existe - se existir, ignorar
+            if (shouldClick && config.name === 'Next') {
+              const passwordField = await page.waitForSelector('input[type="password"]', { timeout: 1000 }).catch(() => null)
+              if (passwordField) {
+                this.bot.log(this.bot.isMobile, 'LOGIN', `Password field detected, skipping "${config.name}" button click`)
+                return // Ignora a função completamente
+              }
+            }
           }
 
           if (shouldClick) {
