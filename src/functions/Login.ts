@@ -339,7 +339,16 @@ export class Login {
     await page.fill(SELECTORS.passwordInput, '')
     await page.fill(SELECTORS.passwordInput, password)
     const submit = await page.waitForSelector(SELECTORS.submitBtn, { timeout: 2000 }).catch(() => null)
-    if (submit) { await submit.click().catch(() => { }); this.bot.log(this.bot.isMobile, 'LOGIN', 'Password submitted') }
+    if (submit) { 
+      //screenlog
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const screenshotPath = `./reports/password_submit_${timestamp}.png`;
+      await this.safeScreenshot(page, screenshotPath, 'password_submit');
+      const htmlPath = `./reports/password_submit_${timestamp}.html`;
+      const html = await page.content();
+      await fs.promises.writeFile(htmlPath, html);
+      //===================================
+      await submit.click().catch(() => { }); this.bot.log(this.bot.isMobile, 'LOGIN', 'Password submitted') }
   }
 
   // --------------- 2FA Handling ---------------
@@ -427,7 +436,17 @@ export class Login {
       await this.bot.utils.wait(1000)
     }
     const portal = await page.waitForSelector('html[data-role-name="RewardsPortal"]', { timeout: 8000 }).catch(() => null)
-    if (!portal) throw this.bot.log(this.bot.isMobile, 'LOGIN', 'Portal root element missing after navigation', 'error')
+    if (!portal) {
+      //screenlog
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const screenshotPath = `./reports/portal_missing_${timestamp}.png`;
+      await this.safeScreenshot(page, screenshotPath, 'portal_missing');
+      const htmlPath = `./reports/portal_missing_${timestamp}.html`;
+      const html = await page.content();
+      await fs.promises.writeFile(htmlPath, html);
+      //===================================
+      throw this.bot.log(this.bot.isMobile, 'LOGIN', 'Portal root element missing after navigation', 'error')
+    }
     await this.bot.utils.wait(1000)
     await this.bot.browser.utils.tryDismissAllMessages(page)
     this.bot.log(this.bot.isMobile, 'LOGIN', 'Reached rewards portal')
