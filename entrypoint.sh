@@ -6,7 +6,7 @@ cleanup() {
     exit 0
 }
 
-trap cleanup EXIT
+#trap cleanup EXIT
 
 # Start squid proxy in background
 squid -N &
