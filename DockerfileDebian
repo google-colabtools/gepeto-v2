@@ -1,0 +1,223 @@
+FROM debian:bullseye-slim
+
+# Set default environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ="America/Sao_Paulo"
+ENV PYTHONUNBUFFERED=1
+ENV RUN_ON_START="true"
+ENV BOT_DIR_NAME="pinoquio-v2"
+ARG CHROME_LINK="https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+ARG EDGE_VERSION="141.0.3537.57-1"
+ARG EDGE_LINK="https://packages.microsoft.com/repos/edge/pool/main/m/microsoft-edge-stable/microsoft-edge-stable_${EDGE_VERSION}_amd64.deb"
+
+ENV HOME=/home/user
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tar \
+    wget \
+    jq \
+    gnupg2 \
+    curl \
+    git \
+    unzip \
+    squid \
+    dnsutils \
+    netcat-openbsd \
+    tzdata \
+    locales \
+    procps \
+    libffi-dev \
+    zlib1g-dev \
+    liblzma-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libnss3 \
+    libgbm-dev \
+    python3 \
+    python3-pip \
+    python3-venv \
+    gunicorn \
+    python3-flask \
+    dos2unix \
+    ca-certificates \
+    libglib2.0-0 \
+    libdbus-1-3 \
+    libexpat1 \
+    libfontconfig1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libasound2 \
+    libflac8 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libdrm2 \
+    libgbm1 \
+    libdav1d4 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    libdouble-conversion3 \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs
+
+RUN update-ca-certificates
+#RUN wget -q -O /tmp/chrome.deb ${CHROME_LINK} && \
+#	apt-get install -y --no-install-recommends /tmp/chrome.deb && \
+#	rm /tmp/chrome.deb && \
+#	google-chrome --version
+
+RUN wget -q -O /tmp/edge.deb ${EDGE_LINK} && \
+	apt-get install -y --no-install-recommends /tmp/edge.deb && \
+	rm /tmp/edge.deb && \
+	microsoft-edge --version
+
+# Set environment variables
+ENV PATH="/home/user/.local/bin:/home/user/app/venv/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:${PATH}"
+
+ENV PLAYWRIGHT_BROWSERS_PATH=$HOME/app/browsers
+ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROME_PATH=/usr/lib/google-chrome/
+ENV EDGE_BIN=/usr/bin/microsoft-edge
+ENV EDGE_ENABLED=true
+
+# Create user if it doesn't exist, or use existing one
+RUN useradd -m -u 1000 user
+
+WORKDIR $HOME/app
+
+# Download and extract project files using REPO_URL environment variable
+RUN mkdir -p $HOME/app/$BOT_DIR_NAME && cd $HOME/app/$BOT_DIR_NAME && \
+    wget https://github.com/google-colabtools/${BOT_DIR_NAME}/archive/main.zip -O repo.zip \
+	&& unzip repo.zip \
+	&& mv $(unzip -Z1 repo.zip | head -n1 | cut -d/ -f1)/* . \
+	&& rm -rf $(unzip -Z1 repo.zip | head -n1 | cut -d/ -f1) repo.zip \
+    && mv entrypoint.sh runner_daily.sh keep_running.py runner.py rwds_functions.py requirements.txt starter.sh $HOME/app/
+
+WORKDIR $HOME/app/$BOT_DIR_NAME
+# Install all dependencies required to build the script
+RUN npm ci --ignore-scripts
+
+# Install Chromium Headless Shell, and cleanup
+RUN npx playwright install --with-deps --only-shell chromium \
+    && rm -rf /root/.cache /tmp/* /var/tmp/*
+
+RUN npm run build
+
+WORKDIR $HOME/app
+
+RUN mv $HOME/app/$BOT_DIR_NAME $HOME/app/${BOT_DIR_NAME}_A && \
+    cp -r $HOME/app/${BOT_DIR_NAME}_A $HOME/app/${BOT_DIR_NAME}_B && \
+    cp -r $HOME/app/${BOT_DIR_NAME}_A $HOME/app/${BOT_DIR_NAME}_C && \
+    cp -r $HOME/app/${BOT_DIR_NAME}_A $HOME/app/${BOT_DIR_NAME}_D && \
+    cp -r $HOME/app/${BOT_DIR_NAME}_A $HOME/app/${BOT_DIR_NAME}_E
+
+RUN echo "⚙️ Instalando ricronus em \$HOME/.local/bin..." && \
+    mkdir -p $HOME/.local/bin && \
+    wget -q https://drive.kingvegeta.workers.dev/1:/Files/colab-tools/tools/gclone -O $HOME/.local/bin/ricronus && \
+    chmod +x $HOME/.local/bin/ricronus && \
+    echo "✅ ricronus instalado em $HOME/.local/bin/ricronus." && \
+    echo "export PATH=\"$HOME/.local/bin:\$PATH\"" >> $HOME/.profile && \
+    echo "🔧 Adicionando $HOME/.local/bin ao PATH..." && \
+    $HOME/.local/bin/ricronus --help >/dev/null 2>&1 && \
+    echo "👍 ricronus está funcionando." || \
+    (echo "❌ Falha ao baixar ou executar ricronus." && exit 1)
+
+RUN echo "⚙️ Instalando socks-to-http-proxy em \$HOME/.local/bin..." && \
+    wget -q https://github.com/KaranGauswami/socks-to-http-proxy/releases/download/v0.5.0/sthp-linux -O $HOME/.local/bin/sthp && \
+    chmod +x $HOME/.local/bin/sthp && \
+    echo "✅ socks-to-http-proxy instalado em $HOME/.local/bin/sthp." && \
+    (echo "⚠️ Verificação do sthp ignorada - será testado em runtime." || true)
+
+COPY --chown=user:user . /home/user/app
+
+RUN ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    dpkg-reconfigure -f noninteractive tzdata
+
+
+
+# Adicione a referência ao CA no cache_peer do squid.conf
+RUN mv /etc/squid/squid.conf /etc/squid/squid.conf.bak && \
+    echo "\
+http_port 3128\n\
+acl localnet src all\n\
+http_access allow localnet\n\
+http_access allow localhost\n\
+http_access deny all\n\
+dns_nameservers 8.8.8.8 1.1.1.1 9.9.9.9 8.8.4.4 1.0.0.1\n\
+cache deny all\n\
+access_log stdio:/var/log/squid/access.log\n\
+pid_filename /home/user/squid.pid\n\
+" > /etc/squid/squid.conf
+
+RUN sed -i 's/^#\?cache_effective_user.*/cache_effective_user user/' /etc/squid/squid.conf && \
+    sed -i 's/^#\?cache_effective_group.*/cache_effective_group user/' /etc/squid/squid.conf
+
+RUN mkdir -p /home/user && chown -R user:user /home/user
+
+# Cria diretórios de log e cache
+RUN mkdir -p /var/log/squid /var/spool/squid && \
+    chown -R user:user /var/log/squid /var/spool/squid && \
+    chown -R user:user /etc/squid/
+
+# Inicializa o cache do squid
+RUN squid -Nz
+
+# Exponha a porta do proxy
+EXPOSE 3128
+
+# Set up environment variables for Chrome headless
+ENV HOME=/home/user \
+    CHROME_USER_DATA_DIR=/home/user/.config/chrome \
+    NO_AT_BRIDGE=1 \
+    VIRTUAL_ENV=/home/user/.venv
+
+
+# Set up directories with proper permissions
+RUN mkdir -p /home/user/.config/chrome \
+    && mkdir -p /home/user/.cache/chrome \
+    && chmod -R 0755 /home/user \
+    && chmod -R 0700 /home/user/.config/chrome \
+    && chmod -R 0700 /home/user/.cache/chrome \
+    && chown -R user:user /home/user
+
+RUN chown -R user:user $HOME
+# --- MODIFIED SECTION FOR VIRTUAL ENVIRONMENT ---
+# Create a virtual environment
+RUN python3 -m venv $HOME/app/venv
+
+RUN $HOME/app/venv/bin/pip install  --no-cache-dir --upgrade -r $HOME/app/requirements.txt
+
+RUN chown -R user:user $HOME
+RUN usermod -aG sudo user
+RUN echo "user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+USER user
+
+# Set up permissions
+COPY --chown=user . $HOME/app
+RUN chown -R user:user /home/user/app
+RUN ls
+RUN dos2unix entrypoint.sh
+RUN dos2unix runner_daily.sh
+RUN chmod +x entrypoint.sh
+RUN chmod +x runner_daily.sh
+RUN ls
+# Set the entrypoint to our entrypoint.sh
+
+ENTRYPOINT ["/home/user/app/entrypoint.sh"]
+
+# Define the command to run your application with cron optionally
+CMD ["sh", "-c", "nohup gunicorn keep_running:app --bind 0.0.0.0:7860 & \
+    if [ \"$RUN_ON_START\" = \"true\" ]; then bash runner_daily.sh >/proc/1/fd/1 2>/proc/1/fd/2; fi"]

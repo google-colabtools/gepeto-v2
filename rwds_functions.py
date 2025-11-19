@@ -704,8 +704,8 @@ def download_and_extract_bot_A(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         else:
             print("Modo ZIP: Pulando download e modificação do config.json.")
 
-        print("Executando npm run build...")
-        subprocess.run("npm run build", shell=True, check=True)
+        #print("Executando npm run build...")
+        #subprocess.run("npm run build", shell=True, check=True)
         print(f"--- ✅ Bot {bot_id} configurado com sucesso ---")
 
     except subprocess.CalledProcessError as e:
@@ -766,8 +766,8 @@ def download_and_extract_bot_B(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         else:
             print("Modo ZIP: Pulando download e modificação do config.json.")
 
-        print("Executando npm run build...")
-        subprocess.run("npm run build", shell=True, check=True)
+        #print("Executando npm run build...")
+        #subprocess.run("npm run build", shell=True, check=True)
         print(f"--- ✅ Bot {bot_id} configurado com sucesso ---")
 
     except subprocess.CalledProcessError as e:
@@ -828,8 +828,8 @@ def download_and_extract_bot_C(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         else:
             print("Modo ZIP: Pulando download e modificação do config.json.")
 
-        print("Executando npm run build...")
-        subprocess.run("npm run build", shell=True, check=True)
+        #print("Executando npm run build...")
+        #subprocess.run("npm run build", shell=True, check=True)
         print(f"--- ✅ Bot {bot_id} configurado com sucesso ---")
 
     except subprocess.CalledProcessError as e:
@@ -890,8 +890,8 @@ def download_and_extract_bot_D(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         else:
             print("Modo ZIP: Pulando download e modificação do config.json.")
 
-        print("Executando npm run build...")
-        subprocess.run("npm run build", shell=True, check=True)
+        #print("Executando npm run build...")
+        #subprocess.run("npm run build", shell=True, check=True)
         print(f"--- ✅ Bot {bot_id} configurado com sucesso ---")
 
     except subprocess.CalledProcessError as e:
@@ -952,8 +952,8 @@ def download_and_extract_bot_E(BOT_DIRECTORY, BOT_ACCOUNT, CONFIG_MODE):
         else:
             print("Modo ZIP: Pulando download e modificação do config.json.")
 
-        print("Executando npm run build...")
-        subprocess.run("npm run build", shell=True, check=True)
+        #print("Executando npm run build...")
+        #subprocess.run("npm run build", shell=True, check=True)
         print(f"--- ✅ Bot {bot_id} configurado com sucesso ---")
 
     except subprocess.CalledProcessError as e:
