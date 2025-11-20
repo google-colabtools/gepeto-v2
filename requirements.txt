@@ -2,6 +2,7 @@ gradio
 flask
 python-dotenv
 uvicorn
+asgiref
 requests
 google-auth
 google-auth-oauthlib
