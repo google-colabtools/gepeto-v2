@@ -1,7 +1,7 @@
 gradio
 flask
 python-dotenv
-gunicorn
+uvicorn
 requests
 google-auth
 google-auth-oauthlib

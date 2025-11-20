@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM bitnami/minideb:latest
 
 # Set default environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -37,7 +37,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
-    gunicorn \
     python3-flask \
     dos2unix \
     ca-certificates \
@@ -48,12 +47,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
     libnspr4 \
     libasound2 \
-    libflac8 \
     libatk1.0-0 \
     libatspi2.0-0 \
     libdrm2 \
     libgbm1 \
-    libdav1d4 \
     libx11-6 \
     libx11-xcb1 \
     libxcomposite1 \
@@ -66,7 +63,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxss1 \
     libxtst6 \
-    libdouble-conversion3 \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
@@ -109,8 +105,8 @@ WORKDIR $HOME/app/$BOT_DIR_NAME
 # Install all dependencies required to build the script
 RUN npm ci --ignore-scripts
 
-# Install Chromium Headless Shell, and cleanup
-RUN npx playwright install --with-deps --only-shell chromium \
+# Install Chromium Headless Shell without deps (we already installed them), and cleanup
+RUN npx playwright install --only-shell chromium \
     && rm -rf /root/.cache /tmp/* /var/tmp/*
 
 RUN npm run build
@@ -219,5 +215,5 @@ RUN ls
 ENTRYPOINT ["/home/user/app/entrypoint.sh"]
 
 # Define the command to run your application with cron optionally
-CMD ["sh", "-c", "nohup gunicorn keep_running:app --bind 0.0.0.0:7860 & \
-    if [ \"$RUN_ON_START\" = \"true\" ]; then bash runner_daily.sh >/proc/1/fd/1 2>/proc/1/fd/2; fi"]
+CMD ["sh", "-c", "nohup uvicorn keep_running:app --host 0.0.0.0 --port 7860 --workers 4 & \
+    if [ \"$RUN_ON_START\" = \"true\" ]; then bash runner_daily.sh; fi"]
